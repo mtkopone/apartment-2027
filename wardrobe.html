@@ -1,0 +1,720 @@
+<title>Niche Wardrobe</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500;600&family=JetBrains+Mono:wght@500&display=swap">
+<style>
+  /* Layout: full-bleed 3D stage; spec card pinned top-left, control bar pinned bottom-centre. */
+  :root {
+    --bg: #e4e2dc;
+    --panel: rgba(251, 250, 247, 0.88);
+    --fg: #24221e;
+    --muted: #6d685f;
+    --line: rgba(36, 34, 30, 0.12);
+    --accent: #8f5f32;
+    --accent-fg: #fffaf3;
+    --chip: #ebe8e1;
+    --tag-bg: #141414;
+    --tag-fg: #ffffff;
+    --tag-soft-bg: rgba(20, 20, 20, 0.55);
+    --font-ui: "Instrument Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+    --font-num: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, monospace;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #15130f; --panel: rgba(29, 27, 23, 0.86); --fg: #eeeae2; --muted: #a49e92;
+      --line: rgba(238, 234, 226, 0.14); --accent: #d49a5f; --accent-fg: #1b140c; --chip: #2a2722;
+      color-scheme: dark;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #15130f; --panel: rgba(29, 27, 23, 0.86); --fg: #eeeae2; --muted: #a49e92;
+    --line: rgba(238, 234, 226, 0.14); --accent: #d49a5f; --accent-fg: #1b140c; --chip: #2a2722;
+    color-scheme: dark;
+  }
+
+  html, body { height: 100%; }
+  body { background: var(--bg); color: var(--fg); font-family: var(--font-ui); overflow: hidden; }
+  #stage { position: fixed; inset: 0; }
+  #stage canvas { display: block; }
+  #labels { position: absolute; inset: 0; pointer-events: none; }
+
+  .spec {
+    position: fixed; top: calc(16px + env(safe-area-inset-top, 0px)); left: 16px;
+    max-width: calc(100% - 32px); width: 248px;
+    background: var(--panel); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
+    border: 1px solid var(--line); border-radius: 12px; padding: 14px 16px;
+    display: grid; gap: 10px;
+  }
+  .spec .eyebrow { margin: 0; font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); }
+  .spec h1 { margin: 0; font-size: 19px; font-weight: 600; letter-spacing: -0.01em; text-wrap: balance; }
+  .spec dl { margin: 0; display: grid; grid-template-columns: auto 1fr; gap: 5px 14px; font-size: 13px; }
+  .spec dt { color: var(--muted); }
+  .spec dd { margin: 0; font-family: var(--font-num); font-size: 12px; text-align: right; font-variant-numeric: tabular-nums; }
+
+  .controls {
+    position: fixed; bottom: calc(16px + env(safe-area-inset-bottom, 0px)); left: 50%; transform: translateX(-50%);
+    max-width: calc(100% - 32px); width: max-content;
+    display: flex; flex-wrap: wrap; justify-content: center; align-items: center; gap: 8px;
+    background: var(--panel); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
+    border: 1px solid var(--line); border-radius: 14px; padding: 8px;
+  }
+  .seg { display: flex; background: var(--chip); border-radius: 9px; padding: 3px; gap: 2px; }
+  .seg button, .btn {
+    font: 500 13px var(--font-ui); color: var(--fg); background: transparent; border: 0;
+    padding: 7px 14px; border-radius: 7px; cursor: pointer;
+  }
+  .seg button[aria-pressed="true"] { background: var(--accent); color: var(--accent-fg); }
+  .btn { background: var(--chip); }
+  .toggle { display: flex; align-items: center; gap: 7px; font-size: 13px; padding: 6px 10px; cursor: pointer; user-select: none; }
+  .toggle input { accent-color: var(--accent); width: 15px; height: 15px; margin: 0; }
+  button:focus-visible, .toggle input:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+  .dim {
+    font: 500 12px var(--font-num); font-variant-numeric: tabular-nums;
+    background: var(--tag-bg); color: var(--tag-fg); padding: 3px 7px; border-radius: 5px; white-space: nowrap;
+  }
+  .dim.soft { background: var(--tag-soft-bg); }
+
+  @media (max-width: 560px) {
+    .spec { width: auto; right: 16px; padding: 10px 12px; gap: 6px; }
+    .spec dl { grid-template-columns: repeat(2, auto 1fr); }
+  }
+</style>
+
+<div id="stage"><div id="labels"></div></div>
+
+<header class="spec">
+  <p class="eyebrow">Recessed &middot; custom build</p>
+  <h1>Niche Wardrobe</h1>
+  <dl id="spec-list"></dl>
+</header>
+
+<nav class="controls" aria-label="View controls">
+  <div class="seg" role="group" aria-label="Lighting">
+    <button id="btn-day" aria-pressed="true">Day</button>
+    <button id="btn-evening" aria-pressed="false">Evening</button>
+  </div>
+  <label class="toggle"><input type="checkbox" id="opt-leds"> Cabinet lights</label>
+  <label class="toggle"><input type="checkbox" id="opt-dims" checked> Dimensions</label>
+  <button class="btn" id="btn-reset">Reset view</button>
+</nav>
+
+<script type="importmap">
+{ "imports": {
+  "three": "https://cdn.jsdelivr.net/npm/three@0.169.0/build/three.module.js",
+  "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.169.0/examples/jsm/"
+} }
+</script>
+
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
+import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
+import { CSS2DRenderer, CSS2DObject } from 'three/addons/renderers/CSS2DRenderer.js';
+import { RectAreaLightUniformsLib } from 'three/addons/lights/RectAreaLightUniformsLib.js';
+
+// ---------------------------------------------------------------------------
+// Everything you might want to fiddle with. All measurements in cm.
+// Item `y` is the height above the floor of the item's underside.
+// Section `width` is the clear interior width; `null` splits the remainder.
+// ---------------------------------------------------------------------------
+const CONFIG = {
+  room: {
+    ceiling: 255,        // assumed, not on the floor plan
+    nicheWidth: 184,
+    nicheLeftDepth: 72,  // left wall of the niche (floor plan: 0.72 m)
+  },
+  cabinet: {
+    width: 184,
+    depth: 60,
+    height: 236,
+    panel: 1.8,          // carcass board thickness
+    back: 0.8,           // back panel thickness
+    plinth: 8,
+    sections: [
+      { width: 48, items: [
+        { type: 'basket', y: 12, h: 17 },
+        { type: 'drawer', y: 30, h: 19.5 },
+        { type: 'drawer', y: 49.5, h: 19.5 },
+        { type: 'drawer', y: 69, h: 19.5 },
+        { type: 'shelf', y: 92, fill: 'clothes' },
+        { type: 'shelf', y: 124, fill: 'clothes' },
+        { type: 'shelf', y: 156, fill: 'clothes' },
+        { type: 'shelf', y: 184, fill: 'clothes' },
+        { type: 'shelf', y: 205, fill: 'boxes' },
+      ]},
+      { width: null, items: [
+        { type: 'basket', y: 12, h: 17 },
+        { type: 'drawer', y: 30, h: 19.5 },
+        { type: 'drawer', y: 49.5, h: 19.5 },
+        { type: 'drawer', y: 69, h: 19.5 },
+        { type: 'shelf', y: 92, fill: 'clothes' },
+        { type: 'shelf', y: 135, fill: 'clothes', stacks: 1 },
+        { type: 'shelf', y: 180, fill: 'clothes' },
+        { type: 'shelf', y: 207, fill: 'clothes' },
+      ]},
+      { width: null, items: [
+        { type: 'shoes', y: 24 },
+        { type: 'shoes', y: 46 },
+        { type: 'shelf', y: 64, fill: 'clothes' },
+        { type: 'rail', y: 188 },
+        { type: 'shelf', y: 200, fill: 'clothes' },
+      ]},
+    ],
+  },
+};
+
+const M = 0.01; // cm -> scene metres
+const LIGHTING = {
+  day:     { bg: 0xdcdbd5, hemi: 1.05, hemiSky: 0xf2f5ff, hemiGround: 0xa89c90, sun: 2.6, env: 0.55, lamp: 0,   glow: 0,  exposure: 1.0 },
+  evening: { bg: 0x14110e, hemi: 0.05, hemiSky: 0x5a4a3a, hemiGround: 0x2a2018, sun: 0,   env: 0.05, lamp: 4.5, glow: 6,  exposure: 1.05 },
+};
+const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+// ---------------------------------------------------------------------------
+// Renderer, scene, camera
+// ---------------------------------------------------------------------------
+const stage = document.getElementById('stage');
+const renderer = new THREE.WebGLRenderer({ antialias: true });
+renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+renderer.setSize(window.innerWidth, window.innerHeight);
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+renderer.toneMapping = THREE.NeutralToneMapping;
+stage.prepend(renderer.domElement);
+
+const labelRenderer = new CSS2DRenderer({ element: document.getElementById('labels') });
+labelRenderer.setSize(window.innerWidth, window.innerHeight);
+
+const scene = new THREE.Scene();
+const pmrem = new THREE.PMREMGenerator(renderer);
+scene.environment = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
+
+const camera = new THREE.PerspectiveCamera(42, window.innerWidth / window.innerHeight, 0.05, 30);
+const HOME = { pos: new THREE.Vector3(-0.55, 1.6, 4.3), target: new THREE.Vector3(0.92, 1.12, 0.3) };
+camera.position.copy(HOME.pos);
+
+const controls = new OrbitControls(camera, renderer.domElement);
+controls.target.copy(HOME.target);
+controls.enableDamping = true;
+controls.minDistance = 0.6;
+controls.maxDistance = 5;
+controls.maxPolarAngle = Math.PI * 0.6;
+controls.minAzimuthAngle = -1.3;
+controls.maxAzimuthAngle = 1.3;
+controls.update();
+
+// ---------------------------------------------------------------------------
+// Materials & textures
+// ---------------------------------------------------------------------------
+function mulberry32(a) {
+  return () => { a |= 0; a = a + 0x6D2B79F5 | 0; let t = Math.imul(a ^ a >>> 15, 1 | a);
+    t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; };
+}
+
+function herringboneTexture() {
+  // Axis-aligned herringbone on a grid of W x W cells; planks are n cells long.
+  // Cell (x, y) belongs to a horizontal plank when (x - y) mod 2n < n, else a vertical one.
+  const n = 5, cells = 4 * n, px = 40, S = cells * px;
+  const canvas = document.createElement('canvas');
+  canvas.width = canvas.height = S;
+  const ctx = canvas.getContext('2d');
+  const img = ctx.createImageData(S, S);
+  const rand = mulberry32(7);
+  const tones = Array.from({ length: cells * 4 }, () => ({ l: 0.82 + rand() * 0.3, warm: rand() * 14 - 7, phase: rand() * 100 }));
+  const mod = (a, b) => ((a % b) + b) % b;
+  const key = (cx, cy) => {
+    const k = mod(Math.floor((cx - cy) / (2 * n)), 2);
+    return mod(cx - cy, 2 * n) < n ? mod(cy, cells) * 2 + k : cells * 2 + mod(cx, cells) * 2 + k;
+  };
+  const gap = 0.035;
+  for (let y = 0; y < S; y++) {
+    for (let x = 0; x < S; x++) {
+      const fx = x / px, fy = y / px, cx = Math.floor(fx), cy = Math.floor(fy);
+      const k = key(cx, cy), lx = fx - cx, ly = fy - cy;
+      const horiz = k < cells * 2;
+      const t = tones[k];
+      const across = horiz ? fy : fx, along = horiz ? fx : fy;
+      const grain = 0.07 * Math.sin(across * 41 + t.phase + 1.8 * Math.sin(along * 1.7 + t.phase))
+                  + 0.03 * Math.sin(across * 157 + t.phase * 3);
+      let l = t.l * (1 + grain);
+      if ((lx < gap && key(cx - 1, cy) !== k) || (lx > 1 - gap && key(cx + 1, cy) !== k) ||
+          (ly < gap && key(cx, cy - 1) !== k) || (ly > 1 - gap && key(cx, cy + 1) !== k)) l *= 0.62;
+      const i = (y * S + x) * 4;
+      img.data[i]     = Math.min(255, (198 + t.warm) * l);
+      img.data[i + 1] = Math.min(255, 152 * l);
+      img.data[i + 2] = Math.min(255, (100 - t.warm) * l);
+      img.data[i + 3] = 255;
+    }
+  }
+  ctx.putImageData(img, 0, 0);
+  const tex = new THREE.CanvasTexture(canvas);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
+  tex.anisotropy = renderer.capabilities.getMaxAnisotropy();
+  tex.userData.tileCm = cells * 9; // plank width 9 cm, length 45 cm
+  return tex;
+}
+
+const wireCanvas = (() => {
+  const c = document.createElement('canvas'); c.width = c.height = 32;
+  const g = c.getContext('2d'); g.fillStyle = '#000'; g.fillRect(0, 0, 32, 32);
+  g.fillStyle = '#fff'; g.fillRect(0, 0, 32, 3); g.fillRect(0, 0, 3, 32);
+  return c;
+})();
+const wireMats = new Map();
+function wireMat(wCm, hCm) {
+  const k = `${Math.round(wCm)}x${Math.round(hCm)}`;
+  if (!wireMats.has(k)) {
+    const tex = new THREE.CanvasTexture(wireCanvas);
+    tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
+    tex.repeat.set(wCm / 2.5, hCm / 2.5);
+    wireMats.set(k, new THREE.MeshStandardMaterial({ color: 0xc4c6c8, metalness: 0.6, roughness: 0.4,
+      alphaMap: tex, alphaTest: 0.5, side: THREE.DoubleSide }));
+  }
+  return wireMats.get(k);
+}
+
+const mat = {
+  carcass: new THREE.MeshStandardMaterial({ color: 0xf2f1ec, roughness: 0.55 }),
+  back:    new THREE.MeshStandardMaterial({ color: 0xe8e6e0, roughness: 0.7 }),
+  front:   new THREE.MeshStandardMaterial({ color: 0xf6f5f1, roughness: 0.45 }),
+  slot:    new THREE.MeshStandardMaterial({ color: 0x6f6b64, roughness: 0.8 }),
+  chrome:  new THREE.MeshStandardMaterial({ color: 0xd0d3d6, metalness: 0.95, roughness: 0.25 }),
+  wall:    new THREE.MeshStandardMaterial({ color: 0xedebe6, roughness: 0.95 }),
+  ceiling: new THREE.MeshStandardMaterial({ color: 0xf5f4f1, roughness: 1 }),
+  trim:    new THREE.MeshStandardMaterial({ color: 0xf7f6f2, roughness: 0.5 }),
+  fabric:  new THREE.MeshStandardMaterial({ color: 0xf1efe9, roughness: 1 }),
+  floor:   new THREE.MeshStandardMaterial({ map: herringboneTexture(), roughness: 0.62 }),
+  ledStrip: new THREE.MeshStandardMaterial({ color: 0xfff1dc, emissive: 0xffd9a8, emissiveIntensity: 0 }),
+};
+const cloth = new Map();
+function clothMat(hex) {
+  if (!cloth.has(hex)) cloth.set(hex, new THREE.MeshStandardMaterial({ color: hex, roughness: 0.95 }));
+  return cloth.get(hex);
+}
+
+// Geometry helpers: boxes take a size and their min corner, all in cm.
+function box(w, h, d, x, y, z, material, { cast = true, receive = true } = {}) {
+  const m = new THREE.Mesh(new THREE.BoxGeometry(w * M, h * M, d * M), material);
+  m.position.set((x + w / 2) * M, (y + h / 2) * M, (z + d / 2) * M);
+  m.castShadow = cast; m.receiveShadow = receive;
+  return m;
+}
+function rbox(w, h, d, x, y, z, material, r = 0.8) {
+  const rr = Math.min(r, w / 2 - 0.01, h / 2 - 0.01, d / 2 - 0.01);
+  const m = new THREE.Mesh(new RoundedBoxGeometry(w * M, h * M, d * M, 2, rr * M), material);
+  m.position.set((x + w / 2) * M, (y + h / 2) * M, (z + d / 2) * M);
+  m.castShadow = true; m.receiveShadow = true;
+  return m;
+}
+function plane(w, h, material) {
+  const m = new THREE.Mesh(new THREE.PlaneGeometry(w * M, h * M), material);
+  m.receiveShadow = true;
+  return m;
+}
+
+// ---------------------------------------------------------------------------
+// Room: niche, adjoining walls, floor, ceiling, door, radiator
+// ---------------------------------------------------------------------------
+const ROOM = { xMin: -113, xMax: CONFIG.room.nicheWidth, zFront: 450 };
+
+function buildRoom() {
+  const g = new THREE.Group();
+  const { ceiling: C, nicheWidth: NW, nicheLeftDepth: ND } = CONFIG.room;
+  const roomW = ROOM.xMax - ROOM.xMin;
+
+  const floor = plane(roomW, ROOM.zFront, mat.floor);
+  floor.rotation.x = -Math.PI / 2;
+  floor.position.set((ROOM.xMin + roomW / 2) * M, 0, (ROOM.zFront / 2) * M);
+  const ft = mat.floor.map; ft.repeat.set(roomW / ft.userData.tileCm, ROOM.zFront / ft.userData.tileCm);
+  ft.center.set(0.5, 0.5); ft.rotation = Math.PI / 4;
+  g.add(floor);
+
+  const ceil = plane(roomW, ROOM.zFront, mat.ceiling);
+  ceil.rotation.x = Math.PI / 2;
+  ceil.position.set((ROOM.xMin + roomW / 2) * M, C * M, (ROOM.zFront / 2) * M);
+  g.add(ceil);
+
+  const back = plane(NW, C, mat.wall);              // niche back wall
+  back.position.set(NW / 2 * M, C / 2 * M, 0);
+  g.add(back);
+
+  const east = plane(ROOM.zFront, C, mat.wall);     // right wall, runs on into the room
+  east.rotation.y = -Math.PI / 2;
+  east.position.set(NW * M, C / 2 * M, ROOM.zFront / 2 * M);
+  g.add(east);
+
+  const west = plane(ROOM.zFront - ND, C, mat.wall);
+  west.rotation.y = Math.PI / 2;
+  west.position.set(ROOM.xMin * M, C / 2 * M, (ND + (ROOM.zFront - ND) / 2) * M);
+  g.add(west);
+
+  g.add(box(17, C, ND, -17, 0, 0, mat.wall));                    // niche left wall stub
+  // North wall of the room, left of the niche, with a closed door (floor plan: 1.04 m door)
+  const doorX0 = -108, doorX1 = -22, doorH = 205;
+  g.add(box(doorX0 - ROOM.xMin, C, 12, ROOM.xMin, 0, ND - 12, mat.wall));
+  g.add(box(-17 - doorX1, C, 12, doorX1, 0, ND - 12, mat.wall));
+  g.add(box(doorX1 - doorX0, C - doorH, 12, doorX0, doorH, ND - 12, mat.wall));
+  g.add(box(doorX1 - doorX0 - 6, doorH - 3, 4, doorX0 + 3, 0, ND - 9, mat.trim));   // door leaf
+  for (const [x, w] of [[doorX0 - 6, 6], [doorX1, 6]]) g.add(box(w, doorH + 6, 1.5, x, 0, ND, mat.trim));
+  g.add(box(doorX1 - doorX0 + 12, 6, 1.5, doorX0 - 6, doorH, ND, mat.trim));
+  const handle = box(12, 2, 2, doorX1 - 18, 100, ND - 3, mat.chrome); g.add(handle);
+
+  // Skirting boards
+  g.add(box(doorX0 - 6 - ROOM.xMin, 6, 1.2, ROOM.xMin, 0, ND, mat.trim));
+  g.add(box(-17 - doorX1 - 6, 6, 1.2, doorX1 + 6, 0, ND, mat.trim));
+  g.add(box(1.2, 6, ROOM.zFront - CONFIG.cabinet.depth, NW - 1.2, 0, CONFIG.cabinet.depth, mat.trim));
+
+  // Radiator on the right wall (floor plan: ~0.86 m to 1.63 m from the back wall)
+  const rad = new THREE.Group();
+  for (let z = 88; z < 160; z += 4.5) rad.add(rbox(7, 58, 3.2, NW - 11, 16, z, mat.trim, 1.2));
+  g.add(rad);
+
+  // Ceiling pendant
+  const shade = new THREE.Mesh(new THREE.CylinderGeometry(0.09, 0.2, 0.18, 40, 1, true),
+    new THREE.MeshStandardMaterial({ color: 0x3b3833, roughness: 0.6, side: THREE.DoubleSide }));
+  shade.position.set(0.55, (C - 32) * M, 1.9);
+  shade.castShadow = true;
+  const bulb = new THREE.Mesh(new THREE.SphereGeometry(0.045, 24, 16),
+    new THREE.MeshStandardMaterial({ color: 0xfff4e0, emissive: 0xffc58a, emissiveIntensity: 0 }));
+  bulb.position.set(0.55, (C - 36) * M, 1.9);
+  const cord = box(0.4, 22, 0.4, 54.8, C - 23, 189.8, mat.slot, { cast: false });
+  g.add(shade, bulb, cord);
+  g.userData.bulb = bulb;
+  return g;
+}
+
+// ---------------------------------------------------------------------------
+// Cabinet
+// ---------------------------------------------------------------------------
+const PALETTE_FOLDED = [0x6b5a3c, 0x4a4f55, 0x7d8590, 0xb7bcc2, 0x2b2d31, 0x8c6f63, 0x5e6d7a, 0xa7a29a, 0x3f4a5c, 0xc9c3b8];
+const PALETTE_HANGING = [0xe9e9e6, 0x5d5f63, 0x8c8e91, 0xd8a69c, 0xc9978d, 0x2f3238, 0xb9bec4];
+
+function sectionBounds(cfg) {
+  const { width: W, panel: T, sections } = cfg;
+  const inner = W - (sections.length + 1) * T;
+  const fixed = sections.reduce((a, s) => a + (s.width ?? 0), 0);
+  const autos = sections.filter(s => s.width == null).length;
+  const autoW = autos ? (inner - fixed) / autos : 0;
+  let x = T;
+  return sections.map(s => {
+    const w = s.width ?? autoW;
+    const b = { x0: x, x1: x + w, w };
+    x += w + T;
+    return b;
+  });
+}
+
+function buildCabinet(cfg) {
+  const g = new THREE.Group();
+  const rand = mulberry32(42);
+  const { width: W, depth: D, height: H, panel: T, back: B, plinth: P } = cfg;
+  const bounds = sectionBounds(cfg);
+
+  g.add(box(T, H, D, 0, 0, 0, mat.carcass));
+  bounds.forEach(b => g.add(box(T, H, D, b.x1, 0, 0, mat.carcass)));
+  g.add(box(W - 2 * T, T, D, T, H - T, 0, mat.carcass));
+  g.add(box(W - 2 * T, T, D, T, P, 0, mat.carcass));
+  g.add(box(W - 2 * T, H - P - 2 * T, B, T, P + T, 0, mat.back));
+  g.add(box(W - 2 * T, P, T, T, 0, D - 4 - T, mat.carcass));
+
+  const yMin = P + T, yMax = H - T, zMin = B, zMax = D;
+  const leds = [];
+
+  bounds.forEach((b, si) => {
+    const items = [...cfg.sections[si].items].sort((a, c) => a.y - c.y);
+    items.forEach((it, i) => {
+      const above = items[i + 1]?.y ?? yMax;
+      const clear = above - (it.y + T);
+      if (it.type === 'shelf') {
+        g.add(box(b.w - 0.2, T, zMax - zMin - 2, b.x0 + 0.1, it.y, zMin, mat.carcass));
+        if (it.fill === 'clothes') addStacks(g, b, it.y + T, clear, it.stacks, (zMin + zMax) / 2, rand);
+        if (it.fill === 'boxes') addBoxes(g, b, it.y + T, clear, zMax);
+      } else if (it.type === 'drawer') {
+        addDrawer(g, b, it, zMin, zMax);
+      } else if (it.type === 'basket') {
+        addBasket(g, b, it, zMin, zMax);
+      } else if (it.type === 'rail') {
+        addRail(g, b, it, (zMin + zMax) / 2, items[i - 1], rand);
+      } else if (it.type === 'shoes') {
+        addShoeShelf(g, b, it, zMin, zMax, rand);
+      }
+    });
+    // LED strip under the topmost shelf (or the carcass top)
+    const topShelf = items.filter(it => it.type === 'shelf').pop();
+    leds.push({ x: (b.x0 + b.x1) / 2, w: b.w - 6, y: topShelf ? topShelf.y : yMax, z: zMax - 5 });
+  });
+
+  g.userData.leds = leds;
+  return g;
+}
+
+function addStacks(g, b, y, clear, count, zc, rand) {
+  const n = count ?? Math.max(1, Math.floor((b.w - 4) / 33));
+  const slot = b.w / n;
+  for (let s = 0; s < n; s++) {
+    const layers = Math.min(3 + Math.floor(rand() * 4), Math.floor((clear - 3) / 3.3));
+    let yy = y;
+    const cx = b.x0 + slot * (s + 0.5) + (rand() - 0.5) * 3;
+    for (let l = 0; l < layers; l++) {
+      const w = 28 + rand() * 3, d = 29 + rand() * 3, h = 2.8 + rand() * 1;
+      const col = PALETTE_FOLDED[Math.floor(rand() * PALETTE_FOLDED.length)];
+      g.add(rbox(w, h, d, cx - w / 2 + (rand() - 0.5) * 1.5, yy, zc - d / 2 + (rand() - 0.5) * 2, clothMat(col), 1.1));
+      yy += h;
+    }
+  }
+}
+
+function addBoxes(g, b, y, clear, zMax) {
+  const n = 2, gapX = 1.5, w = (b.w - gapX * (n + 1)) / n, h = Math.min(24, clear - 2), d = 40;
+  for (let i = 0; i < n; i++) {
+    const x = b.x0 + gapX + i * (w + gapX);
+    g.add(rbox(w, h, d, x, y, zMax - d - 3, mat.fabric, 1.5));
+    g.add(rbox(8, 2.5, 0.4, x + w / 2 - 4, y + h - 6, zMax - 3, mat.slot, 0.15));
+  }
+}
+
+function addDrawer(g, b, it, zMin, zMax) {
+  const gap = 0.3;
+  g.add(box(b.w - 2.6, it.h - 4, zMax - zMin - 4, b.x0 + 1.3, it.y + 1, zMin + 1, mat.front, { cast: false }));
+  g.add(box(b.w - 2 * gap, it.h - 2 * gap, 1.6, b.x0 + gap, it.y + gap, zMax - 1.6, mat.front));
+  g.add(box(14, 1.2, 0.2, b.x0 + b.w / 2 - 7, it.y + it.h - 3.5, zMax, mat.slot, { cast: false }));
+  for (const x of [b.x0, b.x1 - 0.8]) g.add(box(0.8, 1.2, zMax - zMin - 2, x, it.y + 2, zMin, mat.chrome, { cast: false }));
+}
+
+function addBasket(g, b, it, zMin, zMax) {
+  const w = b.w - 3, d = zMax - zMin - 4, h = it.h, x = b.x0 + 1.5, y = it.y, z = zMin + 1;
+  const panels = [
+    [w, h, x + w / 2, y + h / 2, z + d, 0, 0],
+    [w, h, x + w / 2, y + h / 2, z, 0, 0],
+    [d, h, x, y + h / 2, z + d / 2, 0, Math.PI / 2],
+    [d, h, x + w, y + h / 2, z + d / 2, 0, Math.PI / 2],
+    [w, d, x + w / 2, y, z + d / 2, -Math.PI / 2, 0],
+  ];
+  for (const [pw, ph, px, py, pz, rx, ry] of panels) {
+    const p = new THREE.Mesh(new THREE.PlaneGeometry(pw * M, ph * M), wireMat(pw, ph));
+    p.position.set(px * M, py * M, pz * M); p.rotation.set(rx, ry, 0);
+    g.add(p);
+  }
+  g.add(box(w, 1, 1, x, y + h - 1, z + d - 0.5, mat.chrome, { cast: false }));
+  for (const xx of [b.x0, b.x1 - 0.8]) g.add(box(0.8, 1.2, zMax - zMin - 2, xx, y + h - 2, zMin, mat.chrome, { cast: false }));
+}
+
+function addRail(g, b, it, zc, below, rand) {
+  const r = new THREE.Mesh(new THREE.CylinderGeometry(1.2 * M, 1.2 * M, b.w * M, 20), mat.chrome);
+  r.rotation.z = Math.PI / 2;
+  r.position.set((b.x0 + b.w / 2) * M, it.y * M, zc * M);
+  r.castShadow = true;
+  g.add(r);
+  for (const x of [b.x0, b.x1 - 1]) g.add(box(1, 4, 3, x, it.y - 1, zc - 1.5, mat.chrome));
+
+  const floorLimit = below ? below.y + 30 : 20;
+  const spacing = 6.5, n = Math.floor((b.w - 10) / spacing);
+  for (let i = 0; i < n; i++) {
+    const x = b.x0 + 5 + i * spacing + (rand() - 0.5) * 2;
+    const len = Math.min(70 + rand() * 40, it.y - 6 - floorLimit);
+    const col = PALETTE_HANGING[Math.floor(rand() * PALETTE_HANGING.length)];
+    const hook = new THREE.Mesh(new THREE.TorusGeometry(1.8 * M, 0.25 * M, 6, 14, Math.PI * 1.2), mat.chrome);
+    hook.rotation.set(0, Math.PI / 2, -0.3);
+    hook.position.set(x * M, (it.y + 0.2) * M, zc * M);
+    g.add(hook);
+    g.add(box(0.8, 1, 42, x - 0.4, it.y - 5, zc - 21, mat.chrome));
+    const body = rbox(2.4 + rand() * 1.5, len, 40 + rand() * 4, x - 1.5, it.y - 5 - len, zc - 21, clothMat(col), 1);
+    g.add(body);
+  }
+}
+
+function addShoeShelf(g, b, it, zMin, zMax, rand) {
+  const tilt = 0.24, d = zMax - zMin - 6, w = b.w - 2;
+  const sg = new THREE.Group();
+  sg.position.set((b.x0 + 1) * M, it.y * M, (zMin + 2) * M);
+  sg.rotation.x = tilt;
+  const p = new THREE.Mesh(new THREE.PlaneGeometry(w * M, d * M), wireMat(w, d));
+  p.rotation.x = -Math.PI / 2;
+  p.position.set(w / 2 * M, 0, d / 2 * M);
+  sg.add(p);
+  sg.add(box(w, 1, 1, 0, 1.5, d - 1, mat.chrome));
+  sg.add(box(w, 0.8, 0.8, 0, 0, d - 0.8, mat.chrome));
+  const pairs = Math.floor(w / 23);
+  for (let i = 0; i < pairs; i++) {
+    const col = [0x2b2622, 0x5a3b28, 0x30384a, 0xd8d6d0, 0x6e6a64][Math.floor(rand() * 5)];
+    const cx = (w / pairs) * (i + 0.5);
+    for (const side of [-1, 1]) {
+      const shoe = rbox(8.5, 8 + rand(), 26, cx + side * 5 - 4.25, 1, d - 30, clothMat(col), 2.5);
+      sg.add(shoe);
+    }
+  }
+  g.add(sg);
+}
+
+// ---------------------------------------------------------------------------
+// Dimension annotations
+// ---------------------------------------------------------------------------
+const lineMat = new THREE.LineBasicMaterial({ color: 0x1a1a1a });
+function dimension(a, b, text, tickDir, soft = false) {
+  const g = new THREE.Group();
+  const A = new THREE.Vector3(...a).multiplyScalar(M), Bv = new THREE.Vector3(...b).multiplyScalar(M);
+  const t = new THREE.Vector3(...tickDir).multiplyScalar(2.5 * M);
+  const pts = [A, Bv, A.clone().add(t), A.clone().sub(t), Bv.clone().add(t), Bv.clone().sub(t)];
+  const geo = new THREE.BufferGeometry().setFromPoints(pts);
+  geo.setIndex([0, 1, 2, 3, 4, 5]);
+  g.add(new THREE.LineSegments(geo, lineMat));
+  const el = document.createElement('div');
+  el.className = soft ? 'dim soft' : 'dim';
+  el.textContent = text;
+  const label = new CSS2DObject(el);
+  label.position.copy(A).lerp(Bv, 0.5);
+  g.add(label);
+  return g;
+}
+const fmt = v => `${Math.round(v * 10) / 10}`;
+
+function buildDimensions() {
+  const g = new THREE.Group();
+  const { width: W, depth: D, height: H } = CONFIG.cabinet;
+  g.add(dimension([0, H + 8, D], [W, H + 8, D], `${fmt(W)} cm`, [0, 1, 0]));
+  g.add(dimension([W - 4, 0, D + 6], [W - 4, H, D + 6], `${fmt(H)} cm`, [1, 0, 0]));
+  g.add(dimension([W - 6, H + 3, 0], [W - 6, H + 3, D], `${fmt(D)} cm`, [1, 0, 0]));
+  g.add(dimension([2, 1, 0], [2, 1, CONFIG.room.nicheLeftDepth], `niche ${fmt(CONFIG.room.nicheLeftDepth)}`, [1, 0, 0], true));
+  return g;
+}
+
+// ---------------------------------------------------------------------------
+// Lights
+// ---------------------------------------------------------------------------
+RectAreaLightUniformsLib.init();
+const hemi = new THREE.HemisphereLight(0xffffff, 0x000000, 1);
+const sun = new THREE.DirectionalLight(0xfffaf2, 2.6);
+sun.position.set(-1.4, 2.3, 4.6);
+sun.target.position.set(0.9, 0.9, 0.2);
+sun.castShadow = true;
+sun.shadow.mapSize.set(2048, 2048);
+Object.assign(sun.shadow.camera, { left: -2.6, right: 2.6, top: 2.6, bottom: -2.6, near: 0.5, far: 10 });
+sun.shadow.bias = -0.0004;
+sun.shadow.normalBias = 0.02;
+const lamp = new THREE.PointLight(0xffc488, 0, 0, 2);
+lamp.position.set(0.55, (CONFIG.room.ceiling - 40) * M, 1.9);
+lamp.castShadow = true;
+lamp.shadow.mapSize.set(1024, 1024);
+lamp.shadow.bias = -0.002;
+lamp.shadow.normalBias = 0.02;
+scene.add(hemi, sun, sun.target, lamp);
+
+// ---------------------------------------------------------------------------
+// Assemble
+// ---------------------------------------------------------------------------
+let room, cabinet, dims, ledGroup;
+function rebuild() {
+  for (const o of [room, cabinet, dims, ledGroup]) if (o) scene.remove(o);
+  room = buildRoom();
+  cabinet = buildCabinet(CONFIG.cabinet);
+  dims = buildDimensions();
+  dims.visible = document.getElementById('opt-dims').checked;
+  ledGroup = new THREE.Group();
+  for (const l of cabinet.userData.leds) {
+    const rl = new THREE.RectAreaLight(0xffd7a3, 0, l.w * M, 0.025);
+    rl.position.set(l.x * M, (l.y - 0.3) * M, l.z * M);
+    rl.lookAt(l.x * M, 0, l.z * M);
+    ledGroup.add(rl, box(l.w, 0.4, 1.2, l.x - l.w / 2, l.y - 0.4, l.z - 0.6, mat.ledStrip, { cast: false }));
+  }
+  scene.add(room, cabinet, dims, ledGroup);
+  renderSpec();
+  applyLighting();
+}
+
+function renderSpec() {
+  const c = CONFIG.cabinet;
+  const widths = sectionBounds(c).map(b => fmt(b.w)).join(' / ');
+  const rows = [
+    ['Width', `${fmt(c.width)} cm`], ['Depth', `${fmt(c.depth)} cm`], ['Height', `${fmt(c.height)} cm`],
+    ['Sections', `${widths}`], ['Niche', `${fmt(CONFIG.room.nicheWidth)} × ${fmt(CONFIG.room.nicheLeftDepth)}`],
+  ];
+  const dl = document.getElementById('spec-list');
+  dl.replaceChildren(...rows.flatMap(([k, v]) => {
+    const dt = document.createElement('dt'); dt.textContent = k;
+    const dd = document.createElement('dd'); dd.textContent = v;
+    return [dt, dd];
+  }));
+}
+
+// ---------------------------------------------------------------------------
+// Day / evening blending
+// ---------------------------------------------------------------------------
+const state = { t: 0, target: 0, leds: false, ledT: 0 };
+const bg = new THREE.Color();
+const cA = new THREE.Color(), cB = new THREE.Color();
+const lerp = (a, b, t) => a + (b - a) * t;
+
+function applyLighting() {
+  const d = LIGHTING.day, e = LIGHTING.evening, t = state.t;
+  scene.background = bg.copy(cA.setHex(d.bg)).lerp(cB.setHex(e.bg), t);
+  hemi.intensity = lerp(d.hemi, e.hemi, t);
+  hemi.color.copy(cA.setHex(d.hemiSky)).lerp(cB.setHex(e.hemiSky), t);
+  hemi.groundColor.copy(cA.setHex(d.hemiGround)).lerp(cB.setHex(e.hemiGround), t);
+  sun.intensity = lerp(d.sun, e.sun, t);
+  sun.visible = sun.intensity > 0.001;
+  scene.environmentIntensity = lerp(d.env, e.env, t);
+  lamp.intensity = lerp(d.lamp, e.lamp, t);
+  lamp.visible = lamp.intensity > 0.001;
+  room.userData.bulb.material.emissiveIntensity = lerp(d.glow, e.glow, t);
+  renderer.toneMappingExposure = lerp(d.exposure, e.exposure, t);
+  for (const o of ledGroup.children) if (o.isRectAreaLight) o.intensity = 30 * state.ledT;
+  mat.ledStrip.emissiveIntensity = 4 * state.ledT;
+  lineMat.color.setHex(t > 0.5 ? 0xd8d2c6 : 0x1a1a1a);
+}
+
+function setMode(evening) {
+  state.target = evening ? 1 : 0;
+  document.getElementById('btn-day').setAttribute('aria-pressed', String(!evening));
+  document.getElementById('btn-evening').setAttribute('aria-pressed', String(evening));
+  if (reduceMotion) state.t = state.target;
+}
+document.getElementById('btn-day').addEventListener('click', () => setMode(false));
+document.getElementById('btn-evening').addEventListener('click', () => setMode(true));
+document.getElementById('opt-leds').addEventListener('change', e => {
+  state.leds = e.target.checked;
+  if (reduceMotion) state.ledT = state.leds ? 1 : 0;
+});
+document.getElementById('opt-dims').addEventListener('change', e => { dims.visible = e.target.checked; });
+document.getElementById('btn-reset').addEventListener('click', () => {
+  camera.position.copy(HOME.pos); controls.target.copy(HOME.target); controls.update();
+});
+
+// Keep the camera inside the room
+const clampBox = new THREE.Box3(new THREE.Vector3(ROOM.xMin * M + 0.08, 0.15, 0.1),
+                                new THREE.Vector3(ROOM.xMax * M - 0.08, CONFIG.room.ceiling * M - 0.1, ROOM.zFront * M - 0.1));
+controls.addEventListener('change', () => {
+  clampBox.clampPoint(camera.position, camera.position);
+  controls.target.clamp(new THREE.Vector3(-0.5, 0.2, 0), new THREE.Vector3(1.84, 2.4, 1.5));
+});
+
+window.addEventListener('resize', () => {
+  camera.aspect = window.innerWidth / window.innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(window.innerWidth, window.innerHeight);
+  labelRenderer.setSize(window.innerWidth, window.innerHeight);
+});
+
+rebuild();
+if (location.hash === '#evening') { setMode(true); state.t = 1; }
+if (location.hash === '#lit') { setMode(true); state.t = 1; state.leds = true; state.ledT = 1;
+  document.getElementById('opt-leds').checked = true; }
+
+const clock = new THREE.Clock();
+renderer.setAnimationLoop(() => {
+  const dt = Math.min(clock.getDelta(), 0.05);
+  const k = 1 - Math.exp(-dt * 5);
+  const ledTarget = state.leds ? 1 : 0;
+  state.t = lerp(state.t, state.target, k);
+  state.ledT = lerp(state.ledT, ledTarget, k);
+  applyLighting();
+  controls.update();
+  renderer.render(scene, camera);
+  labelRenderer.render(scene, camera);
+});
+
+// Handy for poking at numbers from the console: edit wardrobe.CONFIG, then wardrobe.rebuild()
+window.wardrobe = { CONFIG, rebuild };
+</script>
