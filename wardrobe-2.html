@@ -122,6 +122,7 @@ import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
 import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
 import { CSS2DRenderer, CSS2DObject } from 'three/addons/renderers/CSS2DRenderer.js';
 import { RectAreaLightUniformsLib } from 'three/addons/lights/RectAreaLightUniformsLib.js';
+import { Reflector } from 'three/addons/objects/Reflector.js';
 
 // ---------------------------------------------------------------------------
 // Everything you might want to fiddle with. All measurements in cm.
@@ -136,6 +137,9 @@ const CONFIG = {
     ceiling: 255,        // assumed, not on the floor plan
     nicheWidth: 184,
     nicheLeftDepth: 72,  // left wall of the niche (floor plan: 0.72 m)
+    // On the right-hand wall; z is the distance from the niche back wall to the near edge.
+    mirror: { z: 105, width: 45, height: 165, bottom: 22 },
+    rack:   { z: 168, width: 60, depth: 48, height: 155 },   // freestanding, like JYSK Tornby
   },
   cabinet: {
     width: 184,
@@ -355,6 +359,7 @@ const mat = {
   wax:     new THREE.MeshStandardMaterial({ color: 0xf4efe4, roughness: 0.6 }),
   oak:     new THREE.MeshStandardMaterial({ color: 0x8a6440, roughness: 0.6 }),
   print:   new THREE.MeshStandardMaterial({ color: 0xd9cdb8, roughness: 0.9 }),
+  steel:   new THREE.MeshStandardMaterial({ color: 0x1d1d1d, metalness: 0.6, roughness: 0.45 }),
   door:    new THREE.MeshStandardMaterial({ map: woodTexture(), roughness: 0.65 }),
   handle:  new THREE.MeshStandardMaterial({ color: 0xf0bf4c, metalness: 1, roughness: 0.18 }),
   floor:   new THREE.MeshStandardMaterial({ map: parquetTexture(), roughness: 0.55 }),
@@ -437,6 +442,19 @@ function buildRoom() {
   g.add(box(-17 - doorX1 - 6, 6, 1.2, doorX1 + 6, 0, ND, mat.trim));
   g.add(box(1.2, 6, ROOM.zFront - CONFIG.cabinet.depth, NW - 1.2, 0, CONFIG.cabinet.depth, mat.trim));
 
+  // Full-length mirror on the right wall: thin black frame around a real reflection
+  const mi = CONFIG.room.mirror, fr = 1.2;
+  g.add(box(1.2, mi.height, mi.width, NW - 1.2, mi.bottom, mi.z, mat.steel));
+  const mirror = new Reflector(new THREE.PlaneGeometry((mi.width - 2 * fr) * M, (mi.height - 2 * fr) * M), {
+    textureWidth: 1024, textureHeight: 2048, color: 0xc8ccd0,
+  });
+  mirror.rotation.y = -Math.PI / 2;
+  mirror.position.set((NW - 1.25) * M, (mi.bottom + mi.height / 2) * M, (mi.z + mi.width / 2) * M);
+  g.add(mirror);
+  g.userData.mirror = mirror;
+
+  g.add(buildRack(CONFIG.room.rack, NW));
+
   // Ceiling pendant
   const shade = new THREE.Mesh(new THREE.CylinderGeometry(0.09, 0.2, 0.18, 40, 1, true),
     new THREE.MeshStandardMaterial({ color: 0x3b3833, roughness: 0.6, side: THREE.DoubleSide }));
@@ -448,6 +466,37 @@ function buildRoom() {
   const cord = box(0.4, 22, 0.4, 54.8, C - 23, 319.8, mat.slot, { cast: false });
   g.add(shade, bulb, cord);
   g.userData.bulb = bulb;
+  return g;
+}
+
+// Minimal freestanding clothes rack: two posts on flat feet, a top rail and a low bar.
+// Stands against the right wall with the rail running parallel to it.
+function buildRack(rk, wallX) {
+  const g = new THREE.Group();
+  const x0 = wallX - 3 - rk.depth, xc = x0 + rk.depth / 2, z0 = rk.z, z1 = rk.z + rk.width;
+  const tube = (len, x, y, z, axis) => {
+    const m = placed(new THREE.CylinderGeometry(1 * M, 1 * M, len * M, 16), mat.steel, x, y, z);
+    if (axis === 'z') m.rotation.x = Math.PI / 2;
+    return m;
+  };
+  for (const z of [z0 + 1, z1 - 1]) {
+    g.add(box(rk.depth, 1.5, 2.5, x0, 0, z - 1.25, mat.steel));                // foot
+    g.add(tube(rk.height - 1.5, xc, 1.5 + (rk.height - 1.5) / 2, z));          // post
+  }
+  g.add(tube(rk.width, xc, rk.height - 1, (z0 + z1) / 2, 'z'));               // top rail
+  g.add(tube(rk.width, xc, 18, (z0 + z1) / 2, 'z'));                          // low bar
+
+  const rand = mulberry32(5);
+  const colors = [0xd8a69c, 0x2f3238, 0xe9e9e6, 0x7d8b6a];
+  colors.forEach((col, i) => {
+    const z = z0 + 12 + i * 10 + (rand() - 0.5) * 2, y = rk.height - 1, len = 60 + rand() * 35;
+    const hook = new THREE.Mesh(new THREE.TorusGeometry(1.8 * M, 0.25 * M, 6, 14, Math.PI * 1.2), mat.chrome);
+    hook.rotation.z = -0.3;
+    hook.position.set(xc * M, (y + 0.2) * M, z * M);
+    g.add(hook);
+    g.add(box(40, 1, 0.8, xc - 20, y - 5, z - 0.4, mat.chrome));
+    g.add(rbox(40 + rand() * 4, len, 2.4 + rand() * 1.5, xc - 21, y - 5 - len, z - 1.5, clothMat(col), 1));
+  });
   return g;
 }
 
@@ -765,6 +814,7 @@ scene.add(hemi, sun, sun.target, lamp);
 // ---------------------------------------------------------------------------
 let room, cabinet, dims, ledGroup, doors;
 function rebuild() {
+  room?.userData.mirror?.dispose();
   for (const o of [room, cabinet, dims, ledGroup, doors]) if (o) scene.remove(o);
   room = buildRoom();
   cabinet = buildCabinet(CONFIG.cabinet);
