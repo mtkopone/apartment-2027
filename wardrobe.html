@@ -117,6 +117,7 @@ import { RectAreaLightUniformsLib } from 'three/addons/lights/RectAreaLightUnifo
 // ---------------------------------------------------------------------------
 // Everything you might want to fiddle with. All measurements in cm.
 // Item `y` is the height above the floor of the item's underside.
+// A shelf with `light: true` gets an LED strip on its underside ("Cabinet lights").
 // Section `width` is the clear interior width; `null` splits the remainder.
 // ---------------------------------------------------------------------------
 const CONFIG = {
@@ -134,14 +135,14 @@ const CONFIG = {
     plinth: 8,
     sections: [
       { width: 48, items: [
-        { type: 'basket', y: 12, h: 17 },
+        { type: 'drawer', y: 10, h: 19.5 },
         { type: 'drawer', y: 30, h: 19.5 },
         { type: 'drawer', y: 49.5, h: 19.5 },
         { type: 'drawer', y: 69, h: 19.5 },
         { type: 'shelf', y: 92, fill: 'clothes' },
-        { type: 'shelf', y: 124, fill: 'clothes' },
-        { type: 'shelf', y: 156, fill: 'clothes' },
-        { type: 'shelf', y: 184, fill: 'clothes' },
+        { type: 'shelf', y: 124, fill: 'clothes', light: true },
+        { type: 'shelf', y: 156, fill: 'clothes', light: true },
+        { type: 'shelf', y: 184, fill: 'clothes', light: true },
         { type: 'shelf', y: 205, fill: 'boxes' },
       ]},
       { width: null, items: [
@@ -168,7 +169,7 @@ const CONFIG = {
 const M = 0.01; // cm -> scene metres
 const LIGHTING = {
   day:     { bg: 0xdcdbd5, hemi: 1.05, hemiSky: 0xf2f5ff, hemiGround: 0xa89c90, sun: 2.6, env: 0.55, lamp: 0,   glow: 0,  exposure: 1.0 },
-  evening: { bg: 0x14110e, hemi: 0.05, hemiSky: 0x5a4a3a, hemiGround: 0x2a2018, sun: 0,   env: 0.05, lamp: 4.5, glow: 6,  exposure: 1.05 },
+  evening: { bg: 0x14110e, hemi: 0.05, hemiSky: 0x5a4a3a, hemiGround: 0x2a2018, sun: 0,   env: 0.05, lamp: 7, glow: 6,  exposure: 1.05 },
 };
 const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
@@ -316,7 +317,7 @@ function plane(w, h, material) {
 }
 
 // ---------------------------------------------------------------------------
-// Room: niche, adjoining walls, floor, ceiling, door, radiator
+// Room: niche, adjoining walls, floor, ceiling, door
 // ---------------------------------------------------------------------------
 const ROOM = { xMin: -113, xMax: CONFIG.room.nicheWidth, zFront: 450 };
 
@@ -367,20 +368,15 @@ function buildRoom() {
   g.add(box(-17 - doorX1 - 6, 6, 1.2, doorX1 + 6, 0, ND, mat.trim));
   g.add(box(1.2, 6, ROOM.zFront - CONFIG.cabinet.depth, NW - 1.2, 0, CONFIG.cabinet.depth, mat.trim));
 
-  // Radiator on the right wall (floor plan: ~0.86 m to 1.63 m from the back wall)
-  const rad = new THREE.Group();
-  for (let z = 88; z < 160; z += 4.5) rad.add(rbox(7, 58, 3.2, NW - 11, 16, z, mat.trim, 1.2));
-  g.add(rad);
-
   // Ceiling pendant
   const shade = new THREE.Mesh(new THREE.CylinderGeometry(0.09, 0.2, 0.18, 40, 1, true),
     new THREE.MeshStandardMaterial({ color: 0x3b3833, roughness: 0.6, side: THREE.DoubleSide }));
-  shade.position.set(0.55, (C - 32) * M, 1.9);
+  shade.position.set(0.55, (C - 32) * M, 3.2);
   shade.castShadow = true;
   const bulb = new THREE.Mesh(new THREE.SphereGeometry(0.045, 24, 16),
     new THREE.MeshStandardMaterial({ color: 0xfff4e0, emissive: 0xffc58a, emissiveIntensity: 0 }));
-  bulb.position.set(0.55, (C - 36) * M, 1.9);
-  const cord = box(0.4, 22, 0.4, 54.8, C - 23, 189.8, mat.slot, { cast: false });
+  bulb.position.set(0.55, (C - 36) * M, 3.2);
+  const cord = box(0.4, 22, 0.4, 54.8, C - 23, 319.8, mat.slot, { cast: false });
   g.add(shade, bulb, cord);
   g.userData.bulb = bulb;
   return g;
@@ -442,9 +438,8 @@ function buildCabinet(cfg) {
         addShoeShelf(g, b, it, zMin, zMax, rand);
       }
     });
-    // LED strip under the topmost shelf (or the carcass top)
-    const topShelf = items.filter(it => it.type === 'shelf').pop();
-    leds.push({ x: (b.x0 + b.x1) / 2, w: b.w - 6, y: topShelf ? topShelf.y : yMax, z: zMax - 5 });
+    for (const it of items) if (it.type === 'shelf' && it.light)
+      leds.push({ x: (b.x0 + b.x1) / 2, w: b.w - 6, y: it.y, z: zMax - 5 });
   });
 
   g.userData.leds = leds;
@@ -595,7 +590,7 @@ Object.assign(sun.shadow.camera, { left: -2.6, right: 2.6, top: 2.6, bottom: -2.
 sun.shadow.bias = -0.0004;
 sun.shadow.normalBias = 0.02;
 const lamp = new THREE.PointLight(0xffc488, 0, 0, 2);
-lamp.position.set(0.55, (CONFIG.room.ceiling - 40) * M, 1.9);
+lamp.position.set(0.55, (CONFIG.room.ceiling - 40) * M, 3.2);
 lamp.castShadow = true;
 lamp.shadow.mapSize.set(1024, 1024);
 lamp.shadow.bias = -0.002;
