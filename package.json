@@ -1,0 +1,11 @@
+{
+  "name": "new-apartment",
+  "private": true,
+  "description": "Interactive 3D models for the new apartment. `npm start` serves the pages locally.",
+  "scripts": {
+    "start": "serve -l 3000 ."
+  },
+  "devDependencies": {
+    "serve": "^14.2.4"
+  }
+}

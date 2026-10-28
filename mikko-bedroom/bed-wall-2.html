@@ -50,20 +50,35 @@
     border: 1px solid var(--line); border-radius: 12px; padding: 14px 16px;
     display: grid; gap: 10px;
   }
+  .spec-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 10px; }
+  .spec-head > div { display: grid; gap: 10px; }
+  .spec-body { display: grid; gap: 10px; }
+  .spec.collapsed .spec-body { display: none; }
+  .spec.collapsed { width: auto; }
+  .fold { flex: none; width: 28px; height: 28px; border: 0; border-radius: 7px; background: var(--chip); color: var(--fg);
+          font: 500 14px var(--font-ui); cursor: pointer; }
+  .fold:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
   .spec .eyebrow { margin: 0; font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); }
   .spec h1 { margin: 0; font-size: 19px; font-weight: 600; letter-spacing: -0.01em; text-wrap: balance; }
   .spec dl { margin: 0; display: grid; grid-template-columns: auto 1fr; gap: 5px 14px; font-size: 13px; }
   .spec dt { color: var(--muted); }
   .spec .hint { margin: 0; font-size: 12px; color: var(--muted); }
   .spec dd { margin: 0; font-family: var(--font-num); font-size: 12px; text-align: right; font-variant-numeric: tabular-nums; }
+  .features { border: 0; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); margin: 0; padding: 8px 0; display: grid; gap: 4px; font-size: 13px; }
+  .features legend { padding: 0 0 4px; font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); }
+  .features label { display: flex; align-items: center; gap: 7px; cursor: pointer; user-select: none; }
+  .features label.off { color: var(--muted); cursor: default; }
+  .features input { accent-color: var(--accent); width: 14px; height: 14px; margin: 0; }
 
   .controls {
-    position: fixed; bottom: calc(16px + env(safe-area-inset-bottom, 0px)); left: 50%; transform: translateX(-50%);
+    position: fixed; bottom: calc(16px + env(safe-area-inset-bottom, 0px)); left: 16px;
     max-width: calc(100% - 32px); width: max-content;
-    display: flex; flex-wrap: wrap; justify-content: center; align-items: center; gap: 8px;
+    display: flex; flex-wrap: wrap; justify-content: flex-start; align-items: center; gap: 8px;
     background: var(--panel); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
     border: 1px solid var(--line); border-radius: 14px; padding: 8px;
   }
+  .controls-body { display: contents; }
+  .controls.collapsed .controls-body { display: none; }
   .seg { display: flex; background: var(--chip); border-radius: 9px; padding: 3px; gap: 2px; }
   .seg button, .btn {
     font: 500 13px var(--font-ui); color: var(--fg); background: transparent; border: 0;
@@ -90,14 +105,31 @@
 
 <div id="stage"><div id="labels"></div></div>
 
-<header class="spec">
-  <p class="eyebrow">Mikko's bedroom &middot; option 1: bed in the alcove</p>
-  <h1>Headboard Wall 2</h1>
+<header class="spec" id="spec">
+  <div class="spec-head">
+    <div>
+      <p class="eyebrow">Mikko's bedroom &middot; headboard wall</p>
+      <h1>Headboard Wall 2</h1>
+    </div>
+    <button class="fold" id="btn-fold" aria-expanded="true" aria-controls="spec-body" title="Collapse the panel">&#9662;</button>
+  </div>
+  <div class="spec-body" id="spec-body">
+  <fieldset class="features" aria-label="Features">
+    <legend>Behind the headboard</legend>
+    <label><input type="checkbox" data-feature="alcove"> Bed in the alcove</label>
+    <label><input type="checkbox" data-feature="niches"> Niches in the uprights</label>
+    <label><input type="checkbox" data-feature="tray"> Tray under lift-up lids</label>
+    <label><input type="checkbox" data-feature="pullouts"> Pull-out uprights</label>
+    <label><input type="checkbox" data-feature="frame"> Storage bed frame</label>
+  </fieldset>
   <dl id="spec-list"></dl>
-  <p class="hint">Drag the slider to dim the mirror LED.</p>
+  <p class="hint">Click doors, drawers, the lamps, the LED strip and the curtain to work them.</p>
+  </div>
 </header>
 
-<nav class="controls" aria-label="View controls">
+<nav class="controls" id="controls" aria-label="View controls">
+  <button class="fold" id="btn-fold-controls" aria-expanded="true" aria-controls="controls-body" title="Collapse the controls">&#9662;</button>
+  <div class="controls-body" id="controls-body">
   <div class="seg" role="group" aria-label="Lighting">
     <button id="btn-day" aria-pressed="true">Day</button>
     <button id="btn-evening" aria-pressed="false">Evening</button>
@@ -115,6 +147,7 @@
   <label class="toggle">Mirror LED <input type="range" id="led-dim" min="0" max="100" value="70" aria-label="Mirror LED brightness"></label>
   <label class="toggle"><input type="checkbox" id="opt-dims" checked> Dimensions</label>
   <button class="btn" id="btn-reset">Reset view</button>
+  </div>
 </nav>
 
 <script type="importmap">
@@ -137,8 +170,10 @@ import { Reflector } from 'three/addons/objects/Reflector.js';
 // Everything you might want to fiddle with. All measurements in cm.
 // Based on the designer's elevation "Mikon huoneen sängynpäätyseinä" (indicative 1:20) and the floor plan.
 //
-// VERSION 2: the lower box is opened up and the bed stands inside it, headboard on the wall.
-// The mattress starts about 9 cm from the wall instead of 34; the ledge becomes a shelf over the headboard.
+// With everything in `features` off, this is the wall as drawn. The features are the ideas for
+// the space behind the headboard, switched from the checkboxes in the spec card (or the URL hash,
+// e.g. #alcove,niches). Some exclude each other: the alcove removes the volume the tray and the
+// bed frame need, and the niches and pull-outs both remodel the uprights.
 //
 // Coordinates: x runs along the headboard wall (0 = the box's left edge, next to the door frame),
 // z runs into the room from the wall, y is height above the floor.
@@ -155,11 +190,12 @@ import { Reflector } from 'three/addons/objects/Reflector.js';
 // (a procedurally drawn stand-in is used if the image cannot be fetched).
 // ---------------------------------------------------------------------------
 const CONFIG = {
-  variant: {            // what this version does with the space behind the headboard
-    recessBed: true,    // open the lower box so the bed stands in it, headboard fixed to the wall
-    niches: false,      // open bedside slots in the front of the uprights (goes with recessBed)
-    lids: false,        // the ledge becomes lift-up lids over a storage well behind the headboard
+  features: {           // what to do with the space behind the headboard; all off = as drawn
+    alcove: false,      // open the lower box so the bed stands in it, headboard fixed to the wall
+    niches: false,      // open bedside slots in the front of the uprights
+    tray: false,        // the ledge becomes lift-up lids over a 20 cm tray behind the headboard
     pullouts: false,    // the lower part of each upright becomes a tall pull-out bedside unit
+    frame: false,       // the bed on a MALM-style platform frame with drawers
   },
   room: {
     ceiling: 259,       // lowered ceiling; the box runs floor to ceiling
@@ -179,26 +215,50 @@ const CONFIG = {
     pilaster: 13,       // dark painted uprights either side of the recess
     topRail: 10,
     skirting: 7,        // 70 mm skirting runs round the box
-    ledgeTop: 127,      // top of the ledge over the headboard = the bottom of the mirror recess (clears the shoulders when sitting up)
+    ledgeTop: 113,      // top of the lower panel = the shelf at the bottom of the mirror recess
+    alcove: { ledgeTop: 148, mirrorTop: 184, doorsBottom: 187, knobY: 196, shelf: 215, headboardTop: 143 },   // with the bed in the alcove the ledge's underside is at 145, clear of someone sitting up with a laptop
     ledge: 3,
-    mirror: { top: 174 },                 // optiwhite mirror from the ledge up to the walnut rail
+    mirror: { top: 160 },                 // optiwhite mirror from the ledge up to the walnut rail
     led: { lip: 2, default: 0.7 },        // dimmable LED strip hidden behind a lip along the recess's top front edge
     walnutFrame: 3,                       // walnut frame round the upper doors
-    doors: { bottom: 177, top: 246, hinges: ['left', 'right', 'right'], thickness: 2, inlay: 3, knobY: 186 },
-    shelf: 212,                           // shelf inside the upper cabinet
+    doors: { bottom: 163, top: 246, hinges: ['left', 'right', 'right'], thickness: 2, inlay: 3, knobY: 172 },
+    shelf: 205,                           // shelf inside the upper cabinet
     hatch: { x: 178, y: 10, w: 11, h: 40 },
     lamp: { x: 48, z: 12 },               // brass table lamp on the ledge, cable through a grommet
-    niches: { y: [[60, 88], [92, 120]], w: 9, d: 20 },      // open slots in the front of each upright: [bottom, top] pairs, width, depth
-    lids: { fixed: [13, 47], split: [112], depth: 20 },     // fixed ledge section round the lamp; lids between the remaining edges; tray depth under them
+    niches: { w: 9, d: 20, slots: [            // open slots in the front of each upright, bottom to top: height above floor, height, what it holds
+      { y: 60, h: 12, holds: 'phone' },          // phone lying on a charging pad, USB-C outlet in the back
+      { y: 76, h: 16, holds: 'glasses' },        // reading glasses, or whatever
+      { y: 96, h: 27, holds: 'bottle' },         // a 0.5 l soda bottle standing up
+    ] },
+    lids: { fixed: [13, 47], split: [112], depth: 20, lampX: 30 },   // fixed ledge section round the lamp (moved to lampX); lids between the remaining edges; tray depth
     pullouts: { shelves: [28, 56, 84], travel: 24 },        // shelf heights inside each pull-out unit, and how far it slides out
   },
   bed: {                                  // continental bed with a gingham base, 160 x 200, centred in the recess
     width: 160, length: 200, legs: 9, baseTop: 51, topperTop: 58,
-    frame: null,                          // or a storage frame, see version 7
-    headboard: { width: 164, bottom: 10, top: 122, thickness: 8 },   // upholstered headboard fixed to the wall inside the alcove
+    frame: {                              // MALM-style platform frame round the mattress, drawers in its lower band
+      width: 183, length: 217, height: 38, side: 8, sideRight: 15, mattressTop: 59,   // 8 cm rails, but the right one 15 so the frame meets the wall (a ledge, no gap to clean); from the box to the foot rail: 8 + 1 round the headboard, 200 mattress, 8 foot rail; frame 38 + a 22 cm mattress
+      drawers: { height: 15, depth: 62, travel: 54,
+                 left: [[14, 97], [116, 97]],  // [offset from the box, width]: two along the left side, clear of the headboard
+                 foot: [[91, 80]] },           // [offset from the left, width]: one at the foot, right half, clear of the left drawers
+    },
+    headboard: { width: 164, bottom: 10, top: 108, thickness: 8 },   // separate upholstered headboard, recess width (fixed to the wall in the alcove)
     pillows: 2,
   },
 };
+
+// The features change a few numbers; this derives the wall and bed the builders actually use.
+function effective() {
+  const F = CONFIG.features, w = structuredClone(CONFIG.wall), b = structuredClone(CONFIG.bed);
+  if (F.alcove) {
+    const al = w.alcove;
+    w.ledgeTop = al.ledgeTop; w.mirror.top = al.mirrorTop; w.doors.bottom = al.doorsBottom; w.doors.knobY = al.knobY; w.shelf = al.shelf;
+    b.headboard.top = al.headboardTop;
+  }
+  if (F.tray) w.lamp.x = w.lids.lampX;
+  if (F.frame) b.topperTop = b.frame.mattressTop; else b.frame = null;
+  return { wall: w, bed: b };
+}
+let EFF = effective();
 
 const M = 0.01; // cm -> scene metres
 const LIGHTING = {
@@ -444,6 +504,37 @@ function floralTexture() {
   return tex;
 }
 
+// Coarse upholstery for the headboard: a bouclé-like weave of small loops, drawn as a seamless
+// 8 cm tile and used both for colour variation and as a bump map.
+function boucleTexture() {
+  const S = 256, loop = 8;                                   // 8 cm tile, loops about 2.5 mm across
+  const canvas = document.createElement('canvas'); canvas.width = canvas.height = S;
+  const ctx = canvas.getContext('2d');
+  const img = ctx.createImageData(S, S);
+  const rand = mulberry32(13), n = S / loop;
+  const cells = Array.from({ length: n * n }, () => ({ dx: (rand() - 0.5) * 4, dy: (rand() - 0.5) * 4, tone: 0.9 + rand() * 0.2, r: loop * (0.42 + rand() * 0.12) }));
+  for (let y = 0; y < S; y++) for (let x = 0; x < S; x++) {
+    let l = 0.72;
+    for (let j = -1; j <= 1; j++) for (let i = -1; i <= 1; i++) {   // nearest loops, wrapping at the edges
+      const cx = Math.floor(x / loop) + i, cy = Math.floor(y / loop) + j;
+      const c = cells[((cy + n) % n) * n + (cx + n) % n];
+      const px = cx * loop + loop / 2 + c.dx, py = cy * loop + loop / 2 + c.dy;
+      const d = Math.hypot(x - px, y - py) / c.r;
+      if (d < 1) l = Math.max(l, c.tone * (1 - 0.3 * d * d));
+    }
+    l += (rand() - 0.5) * 0.06;
+    const i = (y * S + x) * 4;
+    img.data[i] = img.data[i + 1] = img.data[i + 2] = Math.max(0, Math.min(255, 255 * l));
+    img.data[i + 3] = 255;
+  }
+  ctx.putImageData(img, 0, 0);
+  const tex = canvasTexture(canvas);
+  tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
+  tex.repeat.set(20, 12);
+  return tex;
+}
+const boucle = boucleTexture();
+
 const mat = {
   paint:   new THREE.MeshStandardMaterial({ color: 0x1a0d08, roughness: 0.5 }),    // the box's painted frame: near-black with a hint of brown, as drawn
   groove:  new THREE.MeshStandardMaterial({ color: 0x120a07, roughness: 0.8 }),
@@ -457,7 +548,7 @@ const mat = {
   ceiling: new THREE.MeshStandardMaterial({ color: 0xf5f4f1, roughness: 1 }),
   floral:  new THREE.MeshStandardMaterial({ map: floralTexture(), roughness: 0.9 }),   // swapped for the real mural once loaded
   floor:   new THREE.MeshStandardMaterial({ map: parquetTexture(), roughness: 0.55 }),
-  fabric:  new THREE.MeshStandardMaterial({ color: 0xb4a698, roughness: 1 }),     // headboard upholstery
+  fabric:  new THREE.MeshStandardMaterial({ color: 0xb6ada6, map: boucle, bumpMap: boucle, bumpScale: 0.004, roughness: 1 }),   // headboard: grey-beige bouclé, as in the drawing
   topper:  new THREE.MeshStandardMaterial({ color: 0xf1ece3, roughness: 1 }),
   pillow:  new THREE.MeshStandardMaterial({ color: 0xf8f6f1, roughness: 1 }),
   curtain: new THREE.MeshStandardMaterial({ color: 0x5c1d22, roughness: 0.9, side: THREE.DoubleSide }),   // deep wine red
@@ -473,7 +564,8 @@ const mat = {
   screen:  new THREE.MeshStandardMaterial({ color: 0x15171c, roughness: 0.2 }),
   ledStrip: new THREE.MeshStandardMaterial({ color: 0xfff3e2, emissive: 0xffdcae, emissiveIntensity: 0 }),
   trayLedStrip: new THREE.MeshStandardMaterial({ color: 0xfffaf2, emissive: 0xfff0dc, emissiveIntensity: 0 }),   // lid-sensor strip inside the tray
-  glow:    new THREE.MeshStandardMaterial({ color: 0xfff4e0, emissive: 0xffc58a, emissiveIntensity: 0 }),
+  glow:    new THREE.MeshStandardMaterial({ color: 0xfff4e0, emissive: 0xffc58a, emissiveIntensity: 0 }),   // ceiling light
+  bulb:    new THREE.MeshStandardMaterial({ color: 0xfff4e0, emissive: 0xffc58a, emissiveIntensity: 0 }),   // table lamp
 };
 // Load the real mural from the Rebel Walls CDN and put it on the papered walls once it arrives.
 const papered = [];   // { mesh, length } for each wall carrying the wallpaper
@@ -568,12 +660,12 @@ function patternedBox(w, h, d, x, y, z, materialFor) {
 // ---------------------------------------------------------------------------
 // Room: floor, ceiling, walls, door frame with curtain, floral wall, ceiling light
 // ---------------------------------------------------------------------------
-const ROOM = { xMin: CONFIG.room.xMin, xMax: CONFIG.wall.width, zFront: CONFIG.room.depth, passage: 68 };
+const ROOM = { xMin: CONFIG.room.xMin, xMax: EFF.wall.width, zFront: CONFIG.room.depth, passage: 68 };
 
 function buildRoom() {
   const g = new THREE.Group();
   const { ceiling: C, door } = CONFIG.room;
-  const W = CONFIG.wall.width, roomW = ROOM.xMax - ROOM.xMin;
+  const W = EFF.wall.width, roomW = ROOM.xMax - ROOM.xMin;
 
   const floor = plane(roomW, ROOM.zFront, mat.floor);
   floor.rotation.x = -Math.PI / 2;
@@ -635,20 +727,23 @@ function buildRoom() {
   g.add(box(door.jamb, PF, 10, door.x1, 0, -10, mat.damasti));
   g.add(box(door.trim, PF, 1.2, door.x0 - door.jamb - 3, 0, 0, mat.damasti));
   g.add(box(-door.x1, PF, 1.2, door.x1, 0, 0, mat.damasti));
-  g.add(box(-ROOM.xMin, C - PF, 10 + CONFIG.wall.depth, ROOM.xMin, PF, -10, mat.paint));
+  g.add(box(-ROOM.xMin, C - PF, 10 + EFF.wall.depth, ROOM.xMin, PF, -10, mat.paint));
 
   // Eyelet curtain on a slim rod inside the opening
-  g.add(buildCurtain(door.x0, door.x1, door.rod, -5));
+  const curtain = buildCurtain(door.x0, door.x1, door.rod, -5);
+  g.add(curtain);
+  g.userData.curtain = curtain.userData.slide;
 
   // Skirting on the plain walls (the box has its own, in its dark colour)
   g.add(box(1.2, 7, op.z0 - 1, ROOM.xMin, 0, 0, mat.trim));
   g.add(box(1.2, 7, L - op.z1 - 1, ROOM.xMin, 0, op.z1 + 1, mat.trim));
-  g.add(box(1.2, 7, ROOM.zFront - CONFIG.wall.depth, W - 1.2, 0, CONFIG.wall.depth, mat.trim));
+  g.add(box(1.2, 7, ROOM.zFront - EFF.wall.depth, W - 1.2, 0, EFF.wall.depth, mat.trim));
 
   // Flush ceiling light in the middle of the room (the room's general light in the evening)
   const cl = CONFIG.room.ceilingLight;
   const disc = placed(new THREE.CylinderGeometry(14 * M, 15 * M, 2 * M, 40), mat.glow, cl.x, C - 1, cl.z);
   disc.castShadow = false;
+  disc.userData.click = () => setCeiling(!state.ceilingOn);
   g.add(disc);
   return g;
 }
@@ -670,16 +765,23 @@ function buildCurtain(x0, x1, rodY, z) {
     pos.setZ(i, (Math.cos(ph + j) * (0.85 + 0.15 * Math.sin(u * 11 + 1)) + 0.22 * Math.sin(ph * 2 + 0.8) + 0.08 * Math.sin(u * 23)) * amp * M);
   }
   geo.computeVertexNormals();
+  // The panel and its rings sit in a group anchored at the left jamb; drawing the curtain open
+  // squashes the group towards that side, which bunches the folds up like a real curtain.
+  const slide = new THREE.Group();
+  slide.position.set(x0 * M, 0, 0);
   const panel = new THREE.Mesh(geo, mat.curtain);
-  panel.position.set((x0 + x1) / 2 * M, (bottom + h / 2) * M, z * M);
+  panel.position.set(w / 2 * M, (bottom + h / 2) * M, z * M);
   panel.castShadow = true; panel.receiveShadow = true;
-  g.add(panel);
+  slide.add(panel);
   for (let k = 0; k <= waves * 2; k++) {                       // eyelet rings on every crest and trough
-    const x = x0 + (k / (waves * 2)) * w;
-    const ring = placed(new THREE.TorusGeometry(2 * M, 0.3 * M, 8, 24), mat.chrome, Math.min(Math.max(x, x0 + 2.5), x1 - 2.5), rodY, z);
+    const x = (k / (waves * 2)) * w;
+    const ring = placed(new THREE.TorusGeometry(2 * M, 0.3 * M, 8, 24), mat.chrome, Math.min(Math.max(x, 2.5), w - 2.5), rodY, z);
     ring.rotation.y = Math.PI / 2;
-    g.add(ring);
+    slide.add(ring);
   }
+  slide.userData.click = () => setCurtain(!state.curtainOpen);
+  g.add(slide);
+  g.userData.slide = slide;
   return g;
 }
 
@@ -698,7 +800,7 @@ const lids = [], pullouts = [];
 function buildWall(cfg) {
   lids.length = 0; pullouts.length = 0;
   const g = new THREE.Group();
-  const V = CONFIG.variant;
+  const V = CONFIG.features;
   const { width: W, depth: D, height: H, pilaster: PL, topRail: TR, skirting: SK, ledgeTop: LT, ledge: LG, walnutFrame: WF } = cfg;
   const x0 = PL, x1 = W - PL, iw = x1 - x0, lowerTop = LT - LG;
   const mirrorY0 = LT, mirrorY1 = cfg.mirror.top;
@@ -709,10 +811,10 @@ function buildWall(cfg) {
   g.add(box(W, SK, D + 1.2, 0, 0, 0, mat.paint));                   // skirting
 
   // Below the ledge: an open alcove for the bed, a storage well under lift-up lids, or the solid panel
-  if (V.recessBed) {
+  if (V.alcove) {
     g.add(box(iw, lowerTop - SK, 1, x0, SK, 0, mat.paint));           // the wall behind the bed, painted to match
     g.add(box(iw, LG, D, x0, lowerTop, 0, mat.paint));                // ledge spanning the uprights over the headboard
-  } else if (V.lids) {
+  } else if (V.tray) {
     addWell(g, cfg);
   } else {
     g.add(box(iw, lowerTop - SK, D, x0, SK, 0, mat.paint));           // lower panel, flush with the uprights
@@ -725,9 +827,12 @@ function buildWall(cfg) {
   mirror.position.set((x0 + iw / 2) * M, ((mirrorY0 + mirrorY1) / 2) * M, 2.05 * M);
   g.add(mirror);
   const lip = cfg.led.lip;
-  g.add(box(iw, lip, 3, x0, mirrorY1 - lip, D - 3, mat.paint));
+  const lipMesh = box(iw, lip, 3, x0, mirrorY1 - lip, D - 3, mat.paint);
+  lipMesh.userData.click = () => setLed(!state.ledOn);               // click the strip (or its lip) to switch it
+  g.add(lipMesh);
   g.add(box(iw, 1, D - 3, x0, mirrorY1 - 1, 0, mat.paint));         // recess ceiling under the walnut rail
   const ledStrip = box(iw - 4, 0.5, 1.2, x0 + 2, mirrorY1 - lip - 0.5, D - 5.5, mat.ledStrip, { cast: false });
+  ledStrip.userData.click = lipMesh.userData.click;
   g.add(ledStrip);
   g.userData.led = { x: x0 + iw / 2, y: mirrorY1 - lip - 0.6, z: D - 5, w: iw - 4 };
 
@@ -760,15 +865,17 @@ function buildWall(cfg) {
   g.add(box(0.25, h.h, 0.1, h.x + h.w, h.y, D, mat.groove, { cast: false }));
 
   // Brass table lamp standing on the ledge, its cable dropping through a grommet
-  const lp = cfg.lamp, ly = LT;
-  g.add(placed(new THREE.CylinderGeometry(8 * M, 8.3 * M, 1.4 * M, 40), mat.brass, lp.x, ly + 0.7, lp.z));
-  g.add(placed(new THREE.CylinderGeometry(0.8 * M, 0.8 * M, 19 * M, 16), mat.brass, lp.x, ly + 1.4 + 9.5, lp.z));
+  const lp = cfg.lamp, ly = LT, lampGroup = new THREE.Group();
+  lampGroup.add(placed(new THREE.CylinderGeometry(8 * M, 8.3 * M, 1.4 * M, 40), mat.brass, lp.x, ly + 0.7, lp.z));
+  lampGroup.add(placed(new THREE.CylinderGeometry(0.8 * M, 0.8 * M, 19 * M, 16), mat.brass, lp.x, ly + 1.4 + 9.5, lp.z));
   const dome = placed(new THREE.SphereGeometry(8 * M, 40, 20, 0, Math.PI * 2, 0, Math.PI / 2), mat.brass, lp.x, ly + 20, lp.z);
   dome.material = new THREE.MeshStandardMaterial({ color: 0xd1aa5e, metalness: 0.95, roughness: 0.22, side: THREE.DoubleSide });
-  g.add(dome);
-  const bulb = placed(new THREE.SphereGeometry(3 * M, 20, 12), mat.glow, lp.x, ly + 20.5, lp.z);
+  lampGroup.add(dome);
+  const bulb = placed(new THREE.SphereGeometry(3 * M, 20, 12), mat.bulb, lp.x, ly + 20.5, lp.z);
   bulb.castShadow = false;
-  g.add(bulb);
+  lampGroup.add(bulb);
+  lampGroup.userData.click = () => setLamp(!state.lampOn);
+  g.add(lampGroup);
   g.userData.lamp = { x: lp.x, y: ly + 21, z: lp.z };
   const gx = lp.x + 11, gz = lp.z - 4;
   g.add(placed(new THREE.CylinderGeometry(2.4 * M, 2.4 * M, 0.3 * M, 28), mat.groove, gx, ly + 0.1, gz));
@@ -798,13 +905,14 @@ function addUpright(g, cfg, ux, V) {
   if (V.niches) {
     const n = cfg.niches, cheek = (PL - n.w) / 2;
     let y = SK;
-    for (const [y0, y1] of [...n.y, [H, H]]) {
+    for (const slot of [...n.slots, { y: H, h: 0 }]) {
+      const y0 = slot.y, y1 = slot.y + slot.h;
       if (y0 > y) g.add(box(PL, y0 - y, D, ux, y, 0, mat.paint));
       if (y1 > y0) {
         g.add(box(PL, y1 - y0, D - n.d, ux, y0, 0, mat.paint));                       // back of the niche
         g.add(box(cheek, y1 - y0, n.d, ux, y0, D - n.d, mat.paint));                  // cheeks
         g.add(box(cheek, y1 - y0, n.d, ux + PL - cheek, y0, D - n.d, mat.paint));
-        addNicheContents(g, ux + cheek, y0, D - n.d, n.w, y1 - y0, n.d, y0 < 90 ? 'low' : 'high', ux === 0);
+        addNicheContents(g, ux + cheek, y0, D - n.d, n.w, y1 - y0, n.d, slot.holds, ux === 0);
       }
       y = y1;
     }
@@ -813,20 +921,41 @@ function addUpright(g, cfg, ux, V) {
   g.add(box(PL, H - SK, D, ux, SK, 0, mat.paint));
 }
 
-// A glass and a phone in the lower niche, a couple of paperbacks and a candle in the upper one.
-function addNicheContents(g, x, y, z, w, h, d, kind, left) {
+// What the niches hold: a phone on a charging pad with a USB-C outlet behind it, a pair of reading
+// glasses, or a 0.5 l soda bottle. Interior is x..x+w, y..y+h, z..z+d (front at z+d).
+function addNicheContents(g, x, y, z, w, h, d, holds, left) {
   const cx = x + w / 2, front = z + d;
-  if (kind === 'low') {
-    g.add(placed(new THREE.CylinderGeometry(3.3 * M, 2.9 * M, 10 * M, 24, 1, true), mat.glass, cx, y + 5, front - 6));
-    g.add(placed(new THREE.CylinderGeometry(2.9 * M, 2.9 * M, 0.4 * M, 24), mat.glass, cx, y + 0.2, front - 6));
-    const phone = rbox(7, 14.5, 0.8, 0, 0, 0, mat.screen, 0.5);
-    phone.position.set(cx * M, (y + 7.3) * M, (z + 2.2) * M);
-    phone.rotation.x = -0.2;
-    g.add(phone);
-  } else {
-    const cols = left ? [0x7a3b2e, 0x3c4a3a] : [0x2f4a5c, 0x9c7b4a];
-    cols.forEach((c, i) => g.add(box(2.4, 17 + i * 1.5, 11.5, x + 1.5 + i * 2.8, y, z + 3, clothMat(c))));
-    g.add(placed(new THREE.CylinderGeometry(2.2 * M, 2.2 * M, 6 * M, 20), mat.wax, cx + 0.5, y + 3, front - 5));
+  if (holds === 'phone') {
+    g.add(placed(new THREE.CylinderGeometry(3.6 * M, 3.6 * M, 0.6 * M, 28), mat.black, cx, y + 0.3, front - 9));   // charging pad
+    g.add(rbox(7, 0.8, 14.5, cx - 3.5, y + 0.6, front - 16.5, mat.screen, 0.5));                                           // phone, face up
+    g.add(rbox(3.2, 2.2, 0.6, cx - 1.6, y + 3, z, mat.carcass, 0.3));                                                       // USB-C outlet plate
+    g.add(rbox(0.9, 0.35, 0.3, cx - 0.45, y + 3.9, z + 0.6, mat.screen, 0.1));                                              // the port
+    const lead = new THREE.CatmullRomCurve3([[cx, y + 4.05, z + 0.8], [cx, y + 3.5, z + 3], [cx, y + 0.9, front - 10], [cx, y + 0.5, front - 9]]
+      .map(q => new THREE.Vector3(...q).multiplyScalar(M)));
+    g.add(new THREE.Mesh(new THREE.TubeGeometry(lead, 40, 0.2 * M, 8), clothMat(0xf4f4f2)));                                // lead to the pad
+  } else if (holds === 'glasses') {
+    // Folded reading glasses lying along the niche: the two lenses in a line front to back, arms folded alongside
+    const frameMat = mat.black, lens = mat.glass, gz = front - 9;
+    for (const dz of [-2.4, 2.4]) {
+      g.add(placed(new THREE.TorusGeometry(2.1 * M, 0.18 * M, 8, 28), frameMat, cx + 1.2, y + 0.6, gz + dz).rotateX(Math.PI / 2));
+      g.add(placed(new THREE.CylinderGeometry(2 * M, 2 * M, 0.15 * M, 28), lens, cx + 1.2, y + 0.6, gz + dz));
+    }
+    g.add(box(0.3, 0.3, 1.2, cx + 1.05, y + 0.6, gz - 0.6, frameMat));                                                     // bridge
+    g.add(box(0.3, 0.3, 11, cx - 1.4, y + 0.8, gz - 5.5, frameMat));                                                       // folded arms
+    g.add(box(0.3, 0.3, 11, cx - 1.8, y + 1.1, gz - 5.5, frameMat));
+  } else if (holds === 'bottle') {
+    // A clear 0.5 l bottle, half full, with a white cap and no label: a smooth lathe profile (radius, height)
+    const lathe = (pts, material) => new THREE.Mesh(new THREE.LatheGeometry(pts.map(([r, yy]) => new THREE.Vector2(r * M, yy * M)), 48), material);
+    const pet = new THREE.MeshStandardMaterial({ color: 0xf2f5f3, roughness: 0.05, metalness: 0, transparent: true, opacity: 0.32, side: THREE.DoubleSide });
+    const water = new THREE.MeshStandardMaterial({ color: 0xe6eeea, roughness: 0.1, transparent: true, opacity: 0.45 });
+    const shell = lathe([[0, 0], [2.6, 0], [3.2, 0.5], [3.25, 3], [3.1, 4], [3.25, 5], [3.25, 15.5], [3.0, 18], [2.2, 20], [1.5, 21.5], [1.5, 23.2], [1.4, 23.2]], pet);
+    shell.position.set(cx * M, y * M, (front - 10) * M); shell.castShadow = true;
+    g.add(shell);
+    const fill = lathe([[0, 0.3], [3.0, 0.3], [3.0, 12.5], [0, 12.5]], water);
+    fill.position.copy(shell.position);
+    g.add(fill);
+    g.add(placed(new THREE.CylinderGeometry(1.65 * M, 1.65 * M, 1.8 * M, 24), clothMat(0xf4f4f2), cx, y + 23.6, front - 10));   // cap
+    g.add(placed(new THREE.TorusGeometry(1.6 * M, 0.12 * M, 6, 24), clothMat(0xe6e6e2), cx, y + 22.5, front - 10).rotateX(Math.PI / 2));   // tamper ring
   }
 }
 
@@ -856,7 +985,7 @@ function addPullout(g, cfg, ux, y0, y1) {
   u.add(placed(new THREE.CylinderGeometry(2.4 * M, 2.4 * M, 7 * M, 20), mat.wax, cx, s2 + 3.5, zc + 5));
   const s3 = y0 + pu.shelves[2] + 1.5;
   u.add(rbox(5.5, 2.5, 5.5, cx - 2.75, s3, zc - 2, clothMat(0xf2f0ea), 1.5));
-  u.userData = { pullout: true, travel: pu.travel };
+  u.userData = { pullout: true, travel: pu.travel, open: 0, target: 0, click: () => togglePiece(u) };
   pullouts.push(u);
   g.add(u);
 }
@@ -869,7 +998,7 @@ function addWell(g, cfg) {
   const wd = Math.min(li.depth, lowerTop - SK - t), wy = lowerTop - wd;        // tray depth and floor level
   g.add(box(iw, lowerTop - SK, t, x0, SK, D - t, mat.paint));                 // front, behind the headboard
   if (wy - t > SK) g.add(box(iw, wy - t - SK, D - t, x0, SK, 0, mat.paint));   // solid below the tray
-  g.add(box(iw, t, D, x0, wy - t, 0, mat.carcass));                           // tray floor
+  g.add(box(iw, t, D - t, x0, wy - t, 0, mat.carcass));                       // tray floor, stopping behind the front panel
   g.add(box(iw, wd, 1, x0, wy, 0, mat.carcass));                              // back lining
   for (const x of [x0, W - PL - 0.8]) g.add(box(0.8, wd, D - t - 1, x, wy, 1, mat.carcass));
   const [f0, f1] = li.fixed;
@@ -883,7 +1012,7 @@ function addWell(g, cfg) {
     pivot.position.set(a * M, lowerTop * M, hz * M);
     pivot.add(box(w, LG, D - hz, 0, 0, 0, mat.paint));
     pivot.add(box(10, 0.8, 1.5, w / 2 - 5, LG - 0.8, D - hz - 2.5, mat.groove, { cast: false }));   // finger groove
-    pivot.userData = { max: Math.PI / 2 };                                       // opens to vertical, resting on the mirror
+    pivot.userData = { max: Math.PI / 2, open: 0, target: 0, click: () => togglePiece(pivot) };   // opens to vertical, resting on the mirror
     lids.push(pivot);
     g.add(pivot);
   }
@@ -955,7 +1084,7 @@ function buildDoors(cfg) {
     knob.rotation.x = Math.PI / 2;
     pivot.add(knob);
     pivot.add(placed(new THREE.CylinderGeometry(0.5 * M, 0.5 * M, 0.8 * M, 12), mat.brass, kx, doors.knobY, 0.3).rotateX(Math.PI / 2));
-    pivot.userData = { sign: left ? -1 : 1, max: 1.75 };
+    pivot.userData = { sign: left ? -1 : 1, max: 1.75, open: 0, target: 0, click: () => togglePiece(pivot) };
     g.add(pivot);
   });
   return g;
@@ -966,13 +1095,14 @@ function buildDoors(cfg) {
 // ---------------------------------------------------------------------------
 function buildBed(cfg, wall) {
   const g = new THREE.Group();
+  bedDrawers.length = 0;
   const hb = cfg.headboard, { width: Wd, length: L } = cfg;
-  const back = CONFIG.variant.recessBed ? 0 : wall.depth;            // the headboard sits against this
+  const back = CONFIG.features.alcove ? 0 : wall.depth;            // the headboard sits against this
   const x0 = wall.pilaster + (wall.width - 2 * wall.pilaster - Wd) / 2, z0 = back + hb.thickness + 1;
   g.add(rbox(hb.width, hb.top - hb.bottom, hb.thickness, wall.pilaster + (wall.width - 2 * wall.pilaster - hb.width) / 2, hb.bottom, back + 0.5, mat.fabric, 2.5));
-  g.userData.foot = cfg.frame ? z0 - 1 + cfg.frame.length : z0 + L;
+  g.userData.foot = cfg.frame ? back + cfg.frame.length : z0 + L;
   if (cfg.frame) {
-    addBedFrame(g, cfg, x0, z0);
+    addBedFrame(g, cfg, x0, z0, back, wall.pilaster + (wall.width - 2 * wall.pilaster - hb.width) / 2);
   } else {
     for (const [dx, dz] of [[8, 8], [Wd - 8, 8], [8, L - 8], [Wd - 8, L - 8]])
       g.add(placed(new THREE.CylinderGeometry(2.2 * M, 3 * M, cfg.legs * M, 16), mat.leg, x0 + dx, cfg.legs / 2, z0 + dz));
@@ -992,16 +1122,20 @@ function buildBed(cfg, wall) {
 
 // Low platform frame round the mattress, in the style of IKEA's MALM storage bed: 8 cm rails,
 // the mattress sitting inside, and drawers in the lower band of the rails that slide out sideways.
-// Drawers are listed per side ('left' slides out towards the door, 'foot' towards the room); each is
-// [offset along that side, width]. No drawers on the right, which is 7 cm from the wall.
+// The frame runs right up to the dark box: its side rails pass the headboard, and the head rail
+// drops to a low piece under the headboard between them. Drawers are listed per side ('left'
+// slides out towards the door, 'foot' towards the room); each is [offset along that side, width].
+// No drawers on the right, which is 7 cm from the wall.
 const bedDrawers = [];
-function addBedFrame(g, cfg, x0, z0) {
-  bedDrawers.length = 0;
-  const f = cfg.frame, { width: Wd, length: L } = cfg, side = f.side, dh = f.drawers.height, dz = f.drawers.depth;
-  const fx0 = x0 - (f.width - Wd) / 2, fz0 = z0 - 1, fw = f.width, fl = f.length, lo = 2, rh = f.height - lo;   // rails stand on 2 cm feet
+function addBedFrame(g, cfg, x0, z0, back, hbx0) {
+  const f = cfg.frame, { width: Wd, length: L } = cfg, hb = cfg.headboard, side = f.side, dh = f.drawers.height, dz = f.drawers.depth;
+  const sideR = f.sideRight ?? side, fx0 = x0 - side, fz0 = back, fw = Wd + side + sideR, fl = f.length, lo = 2, rh = f.height - lo;   // rails stand on 2 cm feet
   const rail = (w, h, d, x, y, z) => g.add(box(w, h, d, x, y, z, mat.walnut));
-  rail(fw, rh, side, fx0, lo, fz0);                                                   // head rail, solid
-  rail(side, rh, fl - 2 * side, fx0 + fw - side, lo, fz0 + side);                     // right rail, solid
+  const hbx1 = hbx0 + hb.width;
+  rail(hbx0 - fx0, rh, side, fx0, lo, fz0);                                           // head rail beside the headboard
+  rail(fx0 + fw - hbx1, rh, side, hbx1, lo, fz0);
+  rail(hbx1 - hbx0, hb.bottom - lo - 0.5, side, hbx0, lo, fz0);                       // and low under it
+  rail(sideR, rh, fl - 2 * side, fx0 + fw - sideR, lo, fz0 + side);                   // right rail, solid, wide enough to meet the wall
   // Left and foot rails are solid between the drawer openings; the drawer fronts fill the openings full height
   const segs = { left: [], foot: [] };
   for (const s of ['left', 'foot']) for (const [o, w] of f.drawers[s] ?? []) segs[s].push([o, o + w]);
@@ -1022,7 +1156,7 @@ function addBedFrame(g, cfg, x0, z0) {
   for (const [x, z] of [[fx0 + 2, fz0 + 2], [fx0 + fw - 6, fz0 + 2], [fx0 + 2, fz0 + fl - 6], [fx0 + fw - 6, fz0 + fl - 6]])
     g.add(box(4, lo, 4, x, 0, z, mat.leg));                                           // feet
   // Base board carrying the mattress, closing the frame over the drawers; the mattress on it, its top at topperTop
-  g.add(box(fw - 2 * side + 1, 2, fl - side, fx0 + side - 0.5, f.height - 3, fz0 + 0.5, mat.carcass));
+  g.add(box(fw - side - sideR + 1, 2, fl - 2 * side, fx0 + side - 0.5, f.height - 3, fz0 + side, mat.carcass));
   g.add(rbox(Wd, cfg.topperTop - (f.height - 1), L, x0, f.height - 1, z0, mat.topper, 3));
   // Drawers: an open box on runners behind a flush front, folded clothes inside
   const rand = mulberry32(61);
@@ -1048,7 +1182,7 @@ function addBedFrame(g, cfg, x0, z0) {
         yy += sh;
       }
     }
-    d.userData = { axis: left ? 'x' : 'z', sign: left ? -1 : 1, travel: f.drawers.travel };
+    d.userData = { axis: left ? 'x' : 'z', sign: left ? -1 : 1, travel: f.drawers.travel, open: 0, target: 0, click: () => togglePiece(d) };
     bedDrawers.push(d);
     g.add(d);
   };
@@ -1079,7 +1213,7 @@ const fmt = v => `${Math.round(v * 10) / 10}`;
 
 function buildDimensions() {
   const g = new THREE.Group();
-  const c = CONFIG.wall, { width: W, depth: D, height: H, pilaster: PL } = c;
+  const c = EFF.wall, { width: W, depth: D, height: H, pilaster: PL } = c;
   const d = CONFIG.room.door;
   g.add(dimension([0, H - 4, D + 4], [W, H - 4, D + 4], `${fmt(W)} cm`, [0, 1, 0]));
   g.add(dimension([W - 5, 0, D + 8], [W - 5, H, D + 8], `${fmt(H)} cm`, [1, 0, 0]));
@@ -1089,19 +1223,21 @@ function buildDimensions() {
   const dw = (W - 2 * (PL + c.walnutFrame)) / c.doors.hinges.length;
   g.add(dimension([PL + c.walnutFrame, c.doors.top + 1.5, D + 2], [PL + c.walnutFrame + dw, c.doors.top + 1.5, D + 2], `door ${fmt(dw)}`, [0, 1, 0], true));
   g.add(dimension([W - PL - 6, c.doors.bottom, D + 3], [W - PL - 6, c.doors.top, D + 3], `${fmt(c.doors.top - c.doors.bottom)}`, [1, 0, 0], true));
-  const bx = PL + (W - 2 * PL - CONFIG.bed.width) / 2;
-  g.add(dimension([bx, CONFIG.bed.topperTop + 2, 130], [bx + CONFIG.bed.width, CONFIG.bed.topperTop + 2, 130], `bed ${fmt(CONFIG.bed.width)}`, [0, 1, 0], true));
+  const bx = PL + (W - 2 * PL - EFF.bed.width) / 2;
+  g.add(dimension([bx, EFF.bed.topperTop + 2, 130], [bx + EFF.bed.width, EFF.bed.topperTop + 2, 130], `bed ${fmt(EFF.bed.width)}`, [0, 1, 0], true));
   g.add(dimension([d.x0, 120, 2], [d.x1, 120, 2], `opening ${fmt(d.x1 - d.x0)}`, [0, 1, 0], true));
-  if (CONFIG.variant.recessBed) {                                   // ledge height: from the floor, and above the mattress
-    g.add(dimension([PL - 4, 0, D + 4], [PL - 4, c.ledgeTop, D + 4], `ledge ${fmt(c.ledgeTop)} from floor`, [1, 0, 0]));
-    g.add(dimension([PL + 3, CONFIG.bed.topperTop, D + 6], [PL + 3, c.ledgeTop, D + 6], `${fmt(c.ledgeTop - CONFIG.bed.topperTop)} above mattress`, [1, 0, 0]));
+  if (CONFIG.features.alcove) {                                   // ledge height: from the floor, and above the mattress
+    const under = c.ledgeTop - c.ledge;                                 // clear height to the ledge's underside
+    g.add(dimension([PL - 4, 0, D + 4], [PL - 4, under, D + 4], `${fmt(under)} clear under the ledge`, [1, 0, 0]));
+    g.add(dimension([PL + 3, EFF.bed.topperTop, D + 6], [PL + 3, under, D + 6], `${fmt(under - EFF.bed.topperTop)} above mattress`, [1, 0, 0]));
   }
-  if (CONFIG.bed.frame) {
-    const f = CONFIG.bed.frame, fx = bx - (f.width - CONFIG.bed.width) / 2;
+  if (EFF.bed.frame) {
+    const f = EFF.bed.frame, fx = bx - f.side;
     g.add(dimension([fx, f.height + 2, bed.userData.foot + 2], [fx + f.width, f.height + 2, bed.userData.foot + 2], `frame ${fmt(f.width)}`, [0, 1, 0], true));
+    g.add(dimension([fx - 4, 0, bed.userData.foot + 2], [fx - 4, f.height, bed.userData.foot + 2], `frame ${fmt(f.height)} tall`, [1, 0, 0], true));
   }
   const foot = bed.userData.foot;
-  g.add(dimension([bx + CONFIG.bed.width + 1, CONFIG.bed.topperTop + 4, 0], [bx + CONFIG.bed.width + 1, CONFIG.bed.topperTop + 4, foot], `foot of bed ${fmt(foot)} from wall`, [1, 0, 0], true));
+  g.add(dimension([bx + EFF.bed.width + 1, EFF.bed.topperTop + 4, 0], [bx + EFF.bed.width + 1, EFF.bed.topperTop + 4, foot], `foot of bed ${fmt(foot)} from wall`, [1, 0, 0], true));
   return g;
 }
 
@@ -1132,14 +1268,17 @@ const smallLights = [];   // the table lamp, on in the evening
 // ---------------------------------------------------------------------------
 let room, wall, bed, doors, dims, ledLight, trayLight;
 function rebuild() {
+  EFF = effective();
+  const keep = doors ? Object.fromEntries(['doors', 'lids', 'pullouts', 'drawers'].map(k => [k, pieces(k).map(p => p.userData.target)])) : null;
+  dims?.traverse(o => o.element?.remove());          // CSS2D labels linger in the DOM unless removed by hand
   reflectors.forEach(m => m.dispose()); reflectors.length = 0;
   for (const o of [room, wall, bed, doors, dims, ledLight, trayLight, ...smallLights]) if (o) scene.remove(o);
   trayLight = null;
   smallLights.length = 0;
   room = buildRoom();
-  wall = buildWall(CONFIG.wall);
-  bed = buildBed(CONFIG.bed, CONFIG.wall);
-  doors = buildDoors(CONFIG.wall);
+  wall = buildWall(EFF.wall);
+  bed = buildBed(EFF.bed, EFF.wall);
+  doors = buildDoors(EFF.wall);
   dims = buildDimensions();
   dims.visible = document.getElementById('opt-dims').checked;
   const l = wall.userData.led;
@@ -1159,12 +1298,14 @@ function rebuild() {
     smallLights.push(pl);
   }
   scene.add(room, wall, bed, doors, dims, ledLight, ...smallLights);
+  if (keep) for (const k of Object.keys(keep)) pieces(k).forEach((p, i) => { p.userData.target = p.userData.open = keep[k][i] ?? 0; });
+  syncPieceControls();
   renderSpec();
   applyLighting();
 }
 
 function renderSpec() {
-  const c = CONFIG.wall, b = CONFIG.bed, d = CONFIG.room.door;
+  const c = EFF.wall, b = EFF.bed, d = CONFIG.room.door;
   const dw = (c.width - 2 * (c.pilaster + c.walnutFrame)) / c.doors.hinges.length;
   const rows = [
     ['Width', `${fmt(c.width)} cm`], ['Depth', `${fmt(c.depth)} cm`], ['Height', `${fmt(c.height)} cm`],
@@ -1174,21 +1315,21 @@ function renderSpec() {
     ['Foot of bed', `${fmt(bed.userData.foot)} cm from wall`],
     ['Door opening', `${fmt(d.x1 - d.x0)} cm`],
   ];
-  const V = CONFIG.variant, hint = document.querySelector('.spec .hint');
-  if (V.recessBed) rows.push(['Ledge', `${fmt(c.ledgeTop)} cm up, ${fmt(c.ledgeTop - b.topperTop)} above mattress`]);
-  if (V.lids) rows.push(['Tray', `${fmt(c.width - 2 * c.pilaster - 2)} × ${fmt(c.lids.depth)} × ${fmt(c.depth - 3)}`]);
+  const V = CONFIG.features, hint = document.querySelector('.spec .hint');
+  if (V.alcove) rows.push(['Under ledge', `${fmt(c.ledgeTop - c.ledge)} cm clear, ${fmt(c.ledgeTop - c.ledge - b.topperTop)} above mattress`]);
+  if (V.tray) rows.push(['Tray', `${fmt(c.width - 2 * c.pilaster - 2)} × ${fmt(c.lids.depth)} × ${fmt(c.depth - 3)}`]);
   if (V.pullouts) rows.push(['Pull-outs', `2 × ${fmt(c.pilaster)} × ${fmt(c.depth)}, ${c.pullouts.shelves.length + 1} shelves`]);
   if (b.frame) {
     const fd = b.frame.drawers;
     rows.push(['Bed frame', `${fmt(b.frame.width)} × ${fmt(b.frame.length)} × ${fmt(b.frame.height)}`]);
     rows.push(['Bed drawers', `${bedDrawers.length}, trays ${fmt(fd.height)} tall × ${fmt(fd.depth)} deep, fronts ${fmt(b.frame.height - 2.6)}`]);
   }
-  if (V.niches) rows.push(['Niches', `${c.niches.y.length} per side, ${fmt(c.niches.w)} × ${fmt(c.niches.d)}`]);
-  document.getElementById('seg-lids').hidden = !V.lids;
+  if (V.niches) rows.push(['Niches', `${c.niches.slots.length} per side, ${fmt(c.niches.w)} wide × ${fmt(c.niches.d)} deep: ${c.niches.slots.map(sl => `${sl.holds} ${fmt(sl.h)}`).join(', ')}`]);
+  document.getElementById('seg-lids').hidden = !V.tray;
   document.getElementById('pullouts-toggle').hidden = !V.pullouts;
-  document.getElementById('beddrawers-toggle').hidden = !CONFIG.bed.frame;
-  hint.textContent = V.lids ? 'Lift the lids: a sensor switches on the LED inside the tray.'
-    : V.pullouts ? 'Slide the pull-outs out of the uprights.' : 'Drag the slider to dim the mirror LED.';
+  document.getElementById('beddrawers-toggle').hidden = !EFF.bed.frame;
+  hint.textContent = V.tray ? 'Click things to work them. Lifting a lid switches on the LED in the tray.'
+    : 'Click doors, drawers, the lamps, the LED strip and the curtain to work them.';
   const dl = document.getElementById('spec-list');
   dl.replaceChildren(...rows.flatMap(([k, v]) => {
     const dt = document.createElement('dt'); dt.textContent = k;
@@ -1200,7 +1341,8 @@ function renderSpec() {
 // ---------------------------------------------------------------------------
 // Day / evening blending
 // ---------------------------------------------------------------------------
-const state = { t: 0, target: 0, led: CONFIG.wall.led.default, ledT: CONFIG.wall.led.default, doorMode: 'closed', doorT: 0, lidMode: 'closed', lidT: 0, pull: false, pullT: 0, bedDraw: false, bedDrawT: 0 };
+const state = { t: 0, target: 0, led: EFF.wall.led.default, ledT: EFF.wall.led.default, ledOn: true, lampOn: true, ceilingOn: true, curtainOpen: false, curtainT: 0 };
+const smooth = v => v * v * (3 - 2 * v);
 const bg = new THREE.Color();
 const cA = new THREE.Color(), cB = new THREE.Color();
 const lerp = (a, b, t) => a + (b - a) * t;
@@ -1214,16 +1356,19 @@ function applyLighting() {
   sun.intensity = lerp(d.sun, e.sun, t);
   sun.visible = sun.intensity > 0.001;
   scene.environmentIntensity = lerp(d.env, e.env, t);
-  lamp.intensity = lerp(d.lamp, e.lamp, t);
+  // Ceiling light and table lamp: switched by clicking them; a little visible even by day
+  const ceil = state.ceilingOn ? 1 : 0, lampOn = state.lampOn ? 1 : 0;
+  lamp.intensity = (lerp(d.lamp, e.lamp, t) + 0.8 * (1 - t)) * ceil;
   lamp.visible = lamp.intensity > 0.001;
-  for (const pl of smallLights) { pl.intensity = 1.6 * t; pl.visible = t > 0.001; }
-  mat.glow.emissiveIntensity = lerp(d.glow, e.glow, t);
+  mat.glow.emissiveIntensity = (lerp(d.glow, e.glow, t) + 1.2 * (1 - t)) * ceil;
+  for (const pl of smallLights) { pl.intensity = (0.5 + 1.1 * t) * lampOn; pl.visible = pl.intensity > 0.001; }
+  mat.bulb.emissiveIntensity = (2 + 3 * t) * lampOn;
   renderer.toneMappingExposure = lerp(d.exposure, e.exposure, t);
   // Mirror LED: dimmable, independent of the time of day
   ledLight.intensity = 70 * state.ledT;
   mat.ledStrip.emissiveIntensity = 5 * state.ledT;
   // Tray LED follows the lids (a lid sensor): on as soon as a lid starts to lift
-  const lidLit = Math.min(1, state.lidT * 3);
+  const lidLit = Math.min(1, lids.reduce((m, l) => Math.max(m, l.userData.open), 0) * 3);
   if (trayLight) trayLight.intensity = 28 * lidLit;
   mat.trayLedStrip.emissiveIntensity = 4 * lidLit;
   lineMat.color.setHex(t > 0.5 ? 0xd8d2c6 : 0x1a1a1a);
@@ -1234,43 +1379,148 @@ function setMode(evening) {
   document.getElementById('btn-day').setAttribute('aria-pressed', String(!evening));
   document.getElementById('btn-evening').setAttribute('aria-pressed', String(evening));
   if (reduceMotion) state.t = state.target;
+  writeUrl();
 }
 document.getElementById('btn-day').addEventListener('click', () => setMode(false));
 document.getElementById('btn-evening').addEventListener('click', () => setMode(true));
 const dimmer = document.getElementById('led-dim');
 dimmer.value = Math.round(state.led * 100);
-dimmer.addEventListener('input', e => { state.led = e.target.value / 100; if (reduceMotion) state.ledT = state.led; });
-function setDoors(mode) {
-  state.doorMode = mode;
-  for (const m of ['closed', 'open'])
-    document.getElementById(`door-${m}`).setAttribute('aria-pressed', String(m === mode));
-  if (reduceMotion) state.doorT = mode === 'open' ? 1 : 0;
+dimmer.addEventListener('input', e => { state.led = e.target.value / 100; state.ledOn = state.led > 0; if (reduceMotion) state.ledT = state.led; writeUrl(); });
+function setLed(on) { state.ledOn = on; if (on && state.led === 0) state.led = EFF.wall.led.default; dimmer.value = Math.round((on ? state.led : 0) * 100); writeUrl(); }
+function setLamp(on) { state.lampOn = on; writeUrl(); }
+function setCeiling(on) { state.ceilingOn = on; writeUrl(); }
+function setCurtain(open) { state.curtainOpen = open; if (reduceMotion) state.curtainT = open ? 1 : 0; writeUrl(); }
+
+// Doors, lids, pull-outs and bed drawers each move on their own: click one to work it, or use the
+// bar's buttons for all of them at once. The bar shows the combined state.
+function pieces(kind) { return kind === 'doors' ? (doors?.children ?? []) : kind === 'lids' ? lids : kind === 'pullouts' ? pullouts : bedDrawers; }
+function togglePiece(p) {
+  p.userData.target = p.userData.target ? 0 : 1;
+  if (reduceMotion) p.userData.open = p.userData.target;
+  syncPieceControls(); writeUrl();
 }
+function setAll(kind, open) {
+  for (const p of pieces(kind)) { p.userData.target = open ? 1 : 0; if (reduceMotion) p.userData.open = p.userData.target; }
+  syncPieceControls(); writeUrl();
+}
+function syncPieceControls() {
+  const all = kind => pieces(kind).length > 0 && pieces(kind).every(p => p.userData.target);
+  const none = kind => pieces(kind).every(p => !p.userData.target);
+  document.getElementById('door-closed').setAttribute('aria-pressed', String(none('doors')));
+  document.getElementById('door-open').setAttribute('aria-pressed', String(all('doors')));
+  document.getElementById('lid-closed').setAttribute('aria-pressed', String(none('lids')));
+  document.getElementById('lid-open').setAttribute('aria-pressed', String(all('lids')));
+  for (const [id, kind] of [['opt-pullouts', 'pullouts'], ['opt-beddrawers', 'drawers']]) {
+    const el = document.getElementById(id);
+    el.checked = all(kind); el.indeterminate = !all(kind) && !none(kind);
+  }
+}
+function setDoors(mode) { setAll('doors', mode === 'open'); }
 for (const m of ['closed', 'open'])
   document.getElementById(`door-${m}`).addEventListener('click', () => setDoors(m));
-function setLids(mode) {
-  state.lidMode = mode;
-  for (const m of ['closed', 'open'])
-    document.getElementById(`lid-${m}`).setAttribute('aria-pressed', String(m === mode));
-  if (reduceMotion) state.lidT = mode === 'open' ? 1 : 0;
+// Feature checkboxes: some combinations don't make sense, so turning one on switches its rivals off,
+// and a feature whose rival is on is greyed out. The active set is kept in the URL hash.
+const EXCLUDES = { alcove: ['tray', 'frame'], tray: ['alcove'], frame: ['alcove'], niches: ['pullouts'], pullouts: ['niches'] };
+const FEATURE_NAMES = { alcove: 'the alcove', tray: 'the tray', frame: 'the bed frame', niches: 'the niches', pullouts: 'the pull-outs' };
+const featureBoxes = [...document.querySelectorAll('[data-feature]')];
+function setFeature(name, on) {
+  CONFIG.features[name] = on;
+  if (on) for (const other of EXCLUDES[name] ?? []) CONFIG.features[other] = false;
+  syncFeatures();
+  rebuild();
+  writeUrl();
 }
+// The whole setup lives in the URL so a link reproduces it: features and every control in the bar.
+// e.g. ?f=tray,niches&light=evening&doors=open&lids=open&led=40&dims=off
+// Served from a file:// URL the browser refuses query changes, so the same thing goes in the hash instead:
+// #tray,niches,evening,open,lids,led=40,nodims (also still read, so older links keep working).
+let urlReady = false;
+function writeUrl() {
+  if (!urlReady) return;
+  const q = new URLSearchParams(), t = [];
+  const f = Object.keys(CONFIG.features).filter(k => CONFIG.features[k]);
+  if (f.length) { q.set('f', f.join(',')); t.push(...f); }
+  if (state.target) { q.set('light', 'evening'); t.push('evening'); }
+  // Pieces: 'open'/'out' when all are, otherwise the 1-based numbers of the open ones
+  const listOf = kind => { const ps = pieces(kind), on = ps.map((p, i) => p.userData.target ? i + 1 : 0).filter(Boolean);
+    return !on.length ? null : on.length === ps.length ? 'all' : on.join(','); };
+  for (const [kind, name, allWord, token] of [['doors', 'doors', 'open', 'open'], ['lids', 'lids', 'open', 'lids'], ['pullouts', 'pullouts', 'out', 'out'], ['drawers', 'drawers', 'out', 'drawers']]) {
+    const v = listOf(kind);
+    if (v) { q.set(name, v === 'all' ? allWord : v); t.push(v === 'all' ? token : `${name}=${v}`); }
+  }
+  if (!state.lampOn) { q.set('lamp', 'off'); t.push('lamp-off'); }
+  if (!state.ceilingOn) { q.set('ceiling', 'off'); t.push('ceiling-off'); }
+  if (state.curtainOpen) { q.set('curtain', 'open'); t.push('curtain'); }
+  const led = state.ledOn ? Math.round(state.led * 100) : 0;
+  if (led !== Math.round(EFF.wall.led.default * 100)) { q.set('led', led); t.push(`led=${led}`); }
+  if (!document.getElementById('opt-dims').checked) { q.set('dims', 'off'); t.push('nodims'); }
+  const qs = q.toString().replace(/%2C/g, ',');
+  try { history.replaceState(null, '', location.pathname + (qs ? '?' + qs : '')); }
+  catch { history.replaceState(null, '', t.length ? '#' + t.join(',') : location.pathname); }
+}
+function syncFeatures() {
+  for (const box of featureBoxes) {
+    const n = box.dataset.feature, rival = (EXCLUDES[n] ?? []).find(o => CONFIG.features[o]);
+    box.checked = !!CONFIG.features[n];
+    box.disabled = !!rival;
+    box.closest('label').classList.toggle('off', !!rival);
+    box.closest('label').title = rival ? `Not together with ${FEATURE_NAMES[rival]}` : '';
+  }
+}
+for (const box of featureBoxes) box.addEventListener('change', e => setFeature(box.dataset.feature, e.target.checked));
+
+function setLids(mode) { setAll('lids', mode === 'open'); }
 for (const m of ['closed', 'open'])
   document.getElementById(`lid-${m}`).addEventListener('click', () => setLids(m));
-function setPullouts(out) {
-  state.pull = out;
-  document.getElementById('opt-pullouts').checked = out;
-  if (reduceMotion) state.pullT = out ? 1 : 0;
-}
+function setPullouts(out) { setAll('pullouts', out); }
 document.getElementById('opt-pullouts').addEventListener('change', e => setPullouts(e.target.checked));
-function setBedDrawers(out) {
-  state.bedDraw = out;
-  document.getElementById('opt-beddrawers').checked = out;
-  if (reduceMotion) state.bedDrawT = out ? 1 : 0;
-}
+function setBedDrawers(out) { setAll('drawers', out); }
 document.getElementById('opt-beddrawers').addEventListener('change', e => setBedDrawers(e.target.checked));
-document.getElementById('opt-dims').addEventListener('change', e => { dims.visible = e.target.checked; });
+document.getElementById('opt-dims').addEventListener('change', e => { dims.visible = e.target.checked; writeUrl(); });
+// Collapsible spec panel; the choice is remembered in this browser
+const specPanel = document.getElementById('spec'), foldBtn = document.getElementById('btn-fold');
+function setFold(collapsed) {
+  specPanel.classList.toggle('collapsed', collapsed);
+  foldBtn.setAttribute('aria-expanded', String(!collapsed));
+  foldBtn.innerHTML = collapsed ? '&#9656;' : '&#9662;';
+  foldBtn.title = collapsed ? 'Expand the panel' : 'Collapse the panel';
+  try { localStorage.setItem('bedwall-spec-collapsed', collapsed ? '1' : '0'); } catch {}
+}
+foldBtn.addEventListener('click', () => setFold(!specPanel.classList.contains('collapsed')));
+try { if (localStorage.getItem('bedwall-spec-collapsed') === '1') setFold(true); } catch {}
+const controlsBar = document.getElementById('controls'), foldControlsBtn = document.getElementById('btn-fold-controls');
+function setControlsFold(collapsed) {
+  controlsBar.classList.toggle('collapsed', collapsed);
+  foldControlsBtn.setAttribute('aria-expanded', String(!collapsed));
+  foldControlsBtn.innerHTML = collapsed ? '&#9652;' : '&#9662;';
+  foldControlsBtn.title = collapsed ? 'Expand the controls' : 'Collapse the controls';
+  try { localStorage.setItem('bedwall-controls-collapsed', collapsed ? '1' : '0'); } catch {}
+}
+foldControlsBtn.addEventListener('click', () => setControlsFold(!controlsBar.classList.contains('collapsed')));
+try { if (localStorage.getItem('bedwall-controls-collapsed') === '1') setControlsFold(true); } catch {}
 document.getElementById('btn-reset').addEventListener('click', () => {
   camera.position.copy(HOME.pos); controls.target.copy(HOME.target); controls.update();
+});
+
+// Clicking things in the model works them: doors, lids, drawers, pull-outs, the lamps, the LED strip and
+// the curtain. The cursor shows when something under it is clickable; a drag still orbits the camera.
+const raycaster = new THREE.Raycaster(), pointer = new THREE.Vector2();
+function clickableAt(e) {
+  const rect = renderer.domElement.getBoundingClientRect();
+  pointer.set(((e.clientX - rect.left) / rect.width) * 2 - 1, -((e.clientY - rect.top) / rect.height) * 2 + 1);
+  raycaster.setFromCamera(pointer, camera);
+  const hit = raycaster.intersectObjects([wall, doors, bed, room], true)[0];
+  for (let o = hit?.object; o; o = o.parent) if (o.userData.click) return o;
+  return null;
+}
+let downAt = null;
+renderer.domElement.addEventListener('pointerdown', e => { downAt = [e.clientX, e.clientY]; });
+renderer.domElement.addEventListener('pointerup', e => {
+  if (!downAt || Math.hypot(e.clientX - downAt[0], e.clientY - downAt[1]) > 5) return;
+  clickableAt(e)?.userData.click();
+});
+renderer.domElement.addEventListener('pointermove', e => {
+  if (!e.buttons) renderer.domElement.style.cursor = clickableAt(e) ? 'pointer' : '';
 });
 
 // Keep the camera inside the room while it's in there; zoomed out past the open
@@ -1290,30 +1540,58 @@ window.addEventListener('resize', () => {
   labelRenderer.setSize(window.innerWidth, window.innerHeight);
 });
 
+// Deep links: read the query parameters (see writeUrl) and, as a fallback, hash tokens such as #alcove,niches,evening
+const tokens = new Set(location.hash.slice(1).split(/[,+]/).filter(Boolean));
+const query = new URLSearchParams(location.search);
+for (const f of (query.get('f') ?? '').split(',')) if (f) tokens.add(f);
+if (query.get('light') === 'evening') tokens.add('evening');
+if (query.has('led')) tokens.add('led=' + query.get('led'));
+if (query.get('lamp') === 'off') tokens.add('lamp-off');
+if (query.get('ceiling') === 'off') tokens.add('ceiling-off');
+if (query.get('curtain') === 'open') tokens.add('curtain');
+if (query.get('dims') === 'off') tokens.add('nodims');
+for (const k of Object.keys(CONFIG.features)) if (tokens.has(k)) { CONFIG.features[k] = true; for (const o of EXCLUDES[k] ?? []) CONFIG.features[o] = false; }
+syncFeatures();
 rebuild();
-if (location.hash === '#open') { setDoors('open'); state.doorT = 1; }
-if (location.hash === '#evening') { setMode(true); state.t = 1; }
-if (location.hash === '#open-evening') { setDoors('open'); state.doorT = 1; setMode(true); state.t = 1; }
-if (location.hash === '#lids') { setLids('open'); state.lidT = 1; }
-if (location.hash === '#pullouts') { setPullouts(true); state.pullT = 1; }
-if (location.hash === '#beddrawers') { setBedDrawers(true); state.bedDrawT = 1; }
+// Pieces: 'open'/'out' means all of them, otherwise a list of 1-based numbers
+const pieceParam = (name, allWord, token) => {
+  if (tokens.has(token)) return 'all';
+  const v = query.get(name);
+  if (!v) return null;
+  if (v === allWord) return 'all';
+  const nums = v.split(',').map(Number).filter(Number.isFinite);
+  return nums.length ? nums : null;
+};
+for (const [kind, name, allWord, token] of [['doors', 'doors', 'open', 'open'], ['lids', 'lids', 'open', 'lids'], ['pullouts', 'pullouts', 'out', 'out'], ['drawers', 'drawers', 'out', 'drawers']]) {
+  const v = pieceParam(name, allWord, token) ?? (tokens.has('open-evening') && kind === 'doors' ? 'all' : null);
+  if (v) pieces(kind).forEach((p, i) => { if (v === 'all' || v.includes(i + 1)) p.userData.target = p.userData.open = 1; });
+}
+syncPieceControls();
+if (tokens.has('evening') || tokens.has('open-evening')) { setMode(true); state.t = 1; }
+if (tokens.has('lamp-off')) state.lampOn = false;
+if (tokens.has('ceiling-off')) state.ceilingOn = false;
+if (tokens.has('curtain')) { state.curtainOpen = true; state.curtainT = 1; }
+for (const tk of tokens) if (tk.startsWith('led=')) {
+  const v = Math.min(100, Math.max(0, Number(tk.slice(4)) || 0));
+  state.ledOn = v > 0; if (v > 0) state.led = v / 100; state.ledT = v / 100; dimmer.value = v;
+}
+if (tokens.has('nodims')) { document.getElementById('opt-dims').checked = false; dims.visible = false; }
+urlReady = true;
+writeUrl();
 
 const clock = new THREE.Clock();
 renderer.setAnimationLoop(() => {
   const dt = Math.min(clock.getDelta(), 0.05);
   const k = 1 - Math.exp(-dt * 5);
   state.t = lerp(state.t, state.target, k);
-  state.ledT = lerp(state.ledT, state.led, k * 1.5);
-  state.doorT = lerp(state.doorT, state.doorMode === 'open' ? 1 : 0, k * 0.8);
-  const ease = state.doorT * state.doorT * (3 - 2 * state.doorT);
-  for (const p of doors.children) p.rotation.y = p.userData.sign * p.userData.max * ease;
-  state.lidT = lerp(state.lidT, state.lidMode === 'open' ? 1 : 0, k * 0.8);
-  const lidEase = state.lidT * state.lidT * (3 - 2 * state.lidT);
-  for (const l of lids) l.rotation.x = -l.userData.max * lidEase;
-  state.pullT = lerp(state.pullT, state.pull ? 1 : 0, k * 1.2);
-  for (const u of pullouts) u.position.z = u.userData.travel * state.pullT * M;
-  state.bedDrawT = lerp(state.bedDrawT, state.bedDraw ? 1 : 0, k * 1.2);
-  for (const d of bedDrawers) d.position[d.userData.axis] = d.userData.sign * d.userData.travel * state.bedDrawT * M;
+  state.ledT = lerp(state.ledT, state.ledOn ? state.led : 0, k * 1.5);
+  const step = (p, rate) => { p.userData.open = lerp(p.userData.open, p.userData.target, k * rate); return smooth(p.userData.open); };
+  for (const p of doors.children) p.rotation.y = p.userData.sign * p.userData.max * step(p, 0.8);
+  for (const l of lids) l.rotation.x = -l.userData.max * step(l, 0.8);
+  for (const u of pullouts) u.position.z = u.userData.travel * step(u, 1.2) * M;
+  for (const d of bedDrawers) d.position[d.userData.axis] = d.userData.sign * d.userData.travel * step(d, 1.2) * M;
+  state.curtainT = lerp(state.curtainT, state.curtainOpen ? 1 : 0, k * 0.9);
+  room.userData.curtain.scale.x = 1 - 0.72 * smooth(state.curtainT);
   applyLighting();
   controls.update();
   renderer.render(scene, camera);
