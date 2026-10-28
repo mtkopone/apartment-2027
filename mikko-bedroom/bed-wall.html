@@ -169,7 +169,7 @@ const CONFIG = {
     mirror: { top: 160 },                 // optiwhite mirror from the ledge up to the walnut rail
     led: { lip: 2, default: 0.7 },        // dimmable LED strip hidden behind a lip along the recess's top front edge
     walnutFrame: 3,                       // walnut frame round the upper doors
-    doors: { bottom: 163, top: 246, hinges: ['left', 'right', 'right'], thickness: 2, knobY: 172 },
+    doors: { bottom: 163, top: 246, hinges: ['left', 'right', 'right'], thickness: 2, inlay: 3, knobY: 172 },
     shelf: 205,                           // shelf inside the upper cabinet
     hatch: { x: 178, y: 10, w: 11, h: 40 },
     lamp: { x: 48, z: 12 },               // brass table lamp on the ledge, cable through a grommet
@@ -429,6 +429,7 @@ const mat = {
   paint:   new THREE.MeshStandardMaterial({ color: 0x1a0d08, roughness: 0.5 }),    // the box's painted frame: near-black with a hint of brown, as drawn
   groove:  new THREE.MeshStandardMaterial({ color: 0x120a07, roughness: 0.8 }),
   walnut:  new THREE.MeshStandardMaterial({ map: walnutTexture(), roughness: 0.45 }),
+  inlay:   new THREE.MeshStandardMaterial({ color: 0xd9cdb4, roughness: 0.5 }),   // pale stringing let into the door faces
   carcass: new THREE.MeshStandardMaterial({ color: 0xe9e2d6, roughness: 0.6 }),   // light interior of the upper cabinet
   trim:    new THREE.MeshStandardMaterial({ color: 0xf7f6f2, roughness: 0.5 }),
   damasti: new THREE.MeshStandardMaterial({ color: 0xd4cfc7, roughness: 0.6 }),   // Tikkurila F485 Damasti, approximately
@@ -778,6 +779,10 @@ function buildDoors(cfg) {
     const pivot = new THREE.Group();
     pivot.position.set((left ? x0 : x1) * M, 0, D * M);
     pivot.add(box(w, h, th, left ? 0 : -w, y0, -th, mat.walnut));
+    // Inlay stringing: a thin pale line let into the face, inset from the door edges
+    const ins = doors.inlay, lw = 0.4, ix = (left ? 0 : -w) + ins, iwd = w - 2 * ins, ih = h - 2 * ins, iy = y0 + ins;
+    for (const [bw, bh, bx, by] of [[iwd, lw, ix, iy], [iwd, lw, ix, iy + ih - lw], [lw, ih, ix, iy], [lw, ih, ix + iwd - lw, iy]])
+      pivot.add(box(bw, bh, 0.06, bx, by, 0, mat.inlay, { cast: false }));
     const kx = left ? w - 4 : -(w - 4);
     const knob = placed(new THREE.CylinderGeometry(1.2 * M, 1.0 * M, 1.6 * M, 20), mat.brass, kx, doors.knobY, 0.8);
     knob.rotation.x = Math.PI / 2;
