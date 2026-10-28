@@ -70,7 +70,48 @@
   .features label.off { color: var(--muted); cursor: default; }
   .features .warn { color: var(--accent); font-size: 12px; margin-left: 2px; }
   .features input { accent-color: var(--accent); width: 14px; height: 14px; margin: 0; }
+  .dims { border-top: 1px solid var(--line); padding-top: 6px; }
+  .dims summary { cursor: pointer; list-style: none; font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); user-select: none; display: flex; align-items: center; gap: 6px; }
+  .dims summary::-webkit-details-marker { display: none; }
+  .dims summary::before { content: "\25BE"; font-size: 12px; }
+  .dims:not([open]) summary::before { content: "\25B8"; }
+  .dims dl { margin-top: 8px; }
   .features select { margin-left: auto; font: 500 12px var(--font-ui); color: var(--fg); background: var(--chip); border: 0; border-radius: 6px; padding: 4px 6px; max-width: 170px; }
+
+  .look {
+    position: fixed; top: calc(16px + env(safe-area-inset-top, 0px)); right: 16px;
+    width: 272px; max-width: calc(100% - 32px); max-height: calc(100vh - 32px); overflow: auto;
+    background: var(--panel); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
+    border: 1px solid var(--line); border-radius: 12px; padding: 14px 16px;
+    display: grid; gap: 10px; align-content: start;
+  }
+  .look.collapsed { width: auto; }
+  .look.collapsed .look-body { display: none; }
+  .look-body { display: grid; gap: 10px; }
+  .look h2 { margin: 0; font-size: 15px; font-weight: 600; }
+  .moods { display: flex; flex-wrap: wrap; gap: 5px; }
+  .moods button { font: 500 12px var(--font-ui); color: var(--fg); background: var(--chip); border: 0; border-radius: 999px; padding: 5px 10px; cursor: pointer; }
+  .moods button[aria-pressed="true"] { background: var(--accent); color: var(--accent-fg); }
+  .surfaces { display: grid; gap: 2px; border-top: 1px solid var(--line); padding-top: 8px; }
+  .surface > button {
+    display: grid; grid-template-columns: 18px 1fr auto; align-items: center; gap: 9px; width: 100%; text-align: left;
+    font: 500 13px var(--font-ui); color: var(--fg); background: transparent; border: 0; padding: 6px 4px; border-radius: 7px; cursor: pointer;
+  }
+  .surface > button:hover { background: var(--chip); }
+  .surface .sw { width: 18px; height: 18px; border-radius: 5px; border: 1px solid var(--line); }
+  .surface .sum { font-size: 11.5px; color: var(--muted); }
+  .surface .ctl { display: none; padding: 4px 4px 10px 31px; gap: 8px; }
+  .surface.open .ctl { display: grid; }
+  .ctl label { display: grid; grid-template-columns: 76px 1fr; align-items: center; gap: 8px; font-size: 12px; color: var(--muted); }
+  .ctl select, .ctl input[type="range"] { width: 100%; min-width: 0; }
+  .ctl select { font: 500 12px var(--font-ui); color: var(--fg); background: var(--chip); border: 0; border-radius: 6px; padding: 4px 6px; }
+  .ctl input[type="range"] { accent-color: var(--accent); margin: 0; }
+  .chips { display: flex; flex-wrap: wrap; gap: 4px; align-items: center; }
+  .chips button { width: 18px; height: 18px; border-radius: 50%; border: 1px solid var(--line); padding: 0; cursor: pointer; }
+  .chips button[aria-pressed="true"] { outline: 2px solid var(--accent); outline-offset: 1px; }
+  .chips input[type="color"] { width: 22px; height: 22px; border: 0; padding: 0; background: none; cursor: pointer; }
+  .look .btn { justify-self: start; }
+  @media (max-width: 900px) { .look { top: auto; bottom: calc(76px + env(safe-area-inset-bottom, 0px)); max-height: 50vh; } }
 
   .controls {
     position: fixed; bottom: calc(16px + env(safe-area-inset-bottom, 0px)); left: 16px;
@@ -139,10 +180,25 @@
       <option value="rondo">Innolux Rondo Air</option>
     </select></label>
   </fieldset>
-  <dl id="spec-list"></dl>
+  <details class="dims" id="dims-fold" open>
+    <summary>Dimensions</summary>
+    <dl id="spec-list"></dl>
+  </details>
   <p class="hint">Click doors, drawers, the lamps, the LED strip and the curtain to work them.</p>
   </div>
 </header>
+
+<aside class="look" id="look" aria-label="Materials and colours">
+  <div class="spec-head">
+    <h2>Look</h2>
+    <button class="fold" id="btn-fold-look" aria-expanded="true" aria-controls="look-body" title="Collapse the panel">&#9662;</button>
+  </div>
+  <div class="look-body" id="look-body">
+    <div class="moods" id="moods" role="group" aria-label="Moods"></div>
+    <div class="surfaces" id="surfaces"></div>
+    <button class="btn" id="btn-copy">Copy link</button>
+  </div>
+</aside>
 
 <nav class="controls" id="controls" aria-label="View controls">
   <button class="fold" id="btn-fold-controls" aria-expanded="true" aria-controls="controls-body" title="Collapse the controls">&#9662;</button>
@@ -162,6 +218,7 @@
   <label class="toggle" id="pullouts-toggle" hidden><input type="checkbox" id="opt-pullouts"> Pull-outs out</label>
   <label class="toggle" id="beddrawers-toggle" hidden><input type="checkbox" id="opt-beddrawers"> Bed drawers out</label>
   <label class="toggle">Mirror LED <input type="range" id="led-dim" min="0" max="100" value="70" aria-label="Mirror LED brightness"></label>
+  <label class="toggle"><input type="checkbox" id="opt-pillows" checked> Pillows</label>
   <label class="toggle"><input type="checkbox" id="opt-dims" checked> Dimensions</label>
   <button class="btn" id="btn-reset">Reset view</button>
   </div>
@@ -182,6 +239,7 @@ import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.j
 import { CSS2DRenderer, CSS2DObject } from 'three/addons/renderers/CSS2DRenderer.js';
 import { RectAreaLightUniformsLib } from 'three/addons/lights/RectAreaLightUniformsLib.js';
 import { Reflector } from 'three/addons/objects/Reflector.js';
+import * as BufferGeometryUtils from 'three/addons/utils/BufferGeometryUtils.js';
 
 // ---------------------------------------------------------------------------
 // Everything you might want to fiddle with. All measurements in cm.
@@ -383,7 +441,7 @@ function parquetTexture() {
 }
 
 // Dark walnut veneer: fine vertical grain with lighter streaks that fade in and out along their length.
-function walnutTexture() {
+function walnutTexture(base = [82, 53, 35]) {
   const Wd = 512, Hd = 2048;
   const canvas = document.createElement('canvas'); canvas.width = Wd; canvas.height = Hd;
   const ctx = canvas.getContext('2d');
@@ -402,9 +460,9 @@ function walnutTexture() {
       const dark = Math.pow(c, 3) * streak;
       const l = 1.05 - 0.55 * dark + 0.04 * Math.sin(u * 0.025 + 2) + (rand() - 0.5) * 0.03;
       const i = (y * Wd + x) * 4;
-      img.data[i] = Math.min(255, 82 * l);
-      img.data[i + 1] = Math.min(255, 53 * l * (1 - 0.05 * dark));
-      img.data[i + 2] = Math.min(255, 35 * l * (1 - 0.12 * dark));
+      img.data[i] = Math.min(255, base[0] * l);
+      img.data[i + 1] = Math.min(255, base[1] * l * (1 - 0.05 * dark));
+      img.data[i + 2] = Math.min(255, base[2] * l * (1 - 0.12 * dark));
       img.data[i + 3] = 255;
     }
   }
@@ -414,15 +472,14 @@ function walnutTexture() {
 
 // Gingham check for the bed base: 4 cm squares in cream and a muted plum-brown (measured off the
 // drawing), with a woven texture.
-function ginghamTexture() {
-  const S = 256, sq = S / 2;                                // 2 x 2 squares per tile, tile = 8 cm
+function ginghamTexture(cream = [240, 231, 218], dark = [112, 78, 78], sizeCm = 4, pattern = 'gingham') {
+  const S = 256, sq = S / 2;                                // 2 x 2 squares per tile, tile = 2 squares
   const canvas = document.createElement('canvas'); canvas.width = canvas.height = S;
   const ctx = canvas.getContext('2d');
   const img = ctx.createImageData(S, S);
-  const cream = [240, 231, 218], dark = [112, 78, 78];
   const rand = mulberry32(5);
   for (let y = 0; y < S; y++) for (let x = 0; x < S; x++) {
-    const w = ((Math.floor(x / sq) % 2) + (Math.floor(y / sq) % 2)) / 2;
+    const w = pattern === 'plain' ? 0 : pattern === 'stripe' ? (Math.floor(x / sq) % 2) : ((Math.floor(x / sq) % 2) + (Math.floor(y / sq) % 2)) / 2;
     const weave = ((x >> 1) + (y >> 1)) % 2 ? 6 : -6;
     const i = (y * S + x) * 4;
     for (let c = 0; c < 3; c++) img.data[i + c] = Math.max(0, Math.min(255, cream[c] + (dark[c] - cream[c]) * w + weave + (rand() - 0.5) * 8));
@@ -431,7 +488,29 @@ function ginghamTexture() {
   ctx.putImageData(img, 0, 0);
   const tex = canvasTexture(canvas);
   tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
-  tex.userData.tileCm = 8;
+  tex.userData.tileCm = 2 * sizeCm;
+  return tex;
+}
+
+// Fine plain weave for linen and cotton: a 2 cm tile of crossing threads, used as a bump map.
+function linenTexture() {
+  const S = 128;
+  const canvas = document.createElement('canvas'); canvas.width = canvas.height = S;
+  const ctx = canvas.getContext('2d');
+  const img = ctx.createImageData(S, S);
+  const rand = mulberry32(17);
+  for (let y = 0; y < S; y++) for (let x = 0; x < S; x++) {
+    const over = ((x >> 2) + (y >> 2)) % 2, tx = x % 4, ty = y % 4;
+    const ridge = over ? 1 - Math.abs(tx - 1.5) / 2.5 : 1 - Math.abs(ty - 1.5) / 2.5;
+    const l = 0.55 + 0.4 * ridge + (rand() - 0.5) * 0.08;
+    const i = (y * S + x) * 4;
+    img.data[i] = img.data[i + 1] = img.data[i + 2] = Math.max(0, Math.min(255, 255 * l));
+    img.data[i + 3] = 255;
+  }
+  ctx.putImageData(img, 0, 0);
+  const tex = canvasTexture(canvas);
+  tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
+  tex.userData.tileCm = 2;
   return tex;
 }
 
@@ -571,12 +650,14 @@ const mat = {
   ceiling: new THREE.MeshStandardMaterial({ color: 0xf5f4f1, roughness: 1 }),
   floral:  new THREE.MeshStandardMaterial({ map: floralTexture(), roughness: 0.9 }),   // swapped for the real mural once loaded
   floor:   new THREE.MeshStandardMaterial({ map: parquetTexture(), roughness: 0.55 }),
-  fabric:  new THREE.MeshStandardMaterial({ color: 0xb6ada6, map: boucle, bumpMap: boucle, bumpScale: 0.004, roughness: 1 }),   // headboard: grey-beige bouclé, as in the drawing
-  topper:  new THREE.MeshStandardMaterial({ color: 0xf1ece3, roughness: 1 }),
-  pillow:  new THREE.MeshStandardMaterial({ color: 0xf8f6f1, roughness: 1 }),
-  curtain: new THREE.MeshStandardMaterial({ color: 0x5c1d22, roughness: 0.9, side: THREE.DoubleSide }),   // deep wine red
+  // Textiles are physical materials so they can take a sheen (velvet, sateen); the Look panel sets them
+  fabric:  new THREE.MeshPhysicalMaterial({ color: 0xb6ada6, map: boucle, bumpMap: boucle, bumpScale: 0.004, roughness: 1 }),   // headboard
+  topper:  new THREE.MeshPhysicalMaterial({ color: 0xf1ece3, roughness: 1 }),
+  pillow:  new THREE.MeshPhysicalMaterial({ color: 0xf8f6f1, roughness: 1 }),
+  curtain: new THREE.MeshPhysicalMaterial({ color: 0x5c1d22, roughness: 0.9, side: THREE.DoubleSide }),
+  wallPaint: new THREE.MeshStandardMaterial({ color: 0xefece6, roughness: 0.95 }),
   chrome:  new THREE.MeshStandardMaterial({ color: 0xd0d3d6, metalness: 0.95, roughness: 0.25 }),
-  brass:   new THREE.MeshStandardMaterial({ color: 0xd1aa5e, metalness: 0.95, roughness: 0.22 }),
+  brass:   new THREE.MeshStandardMaterial({ color: 0xd1aa5e, metalness: 0.95, roughness: 0.22, side: THREE.DoubleSide }),   // "metal" in the Look panel: knobs, grommet, lamp, rod
   black:   new THREE.MeshStandardMaterial({ color: 0x1b1b1b, roughness: 0.5 }),
   leg:     new THREE.MeshStandardMaterial({ color: 0x3a2a22, roughness: 0.6 }),
   linen:   new THREE.MeshStandardMaterial({ color: 0xcfc6b8, roughness: 1 }),
@@ -601,6 +682,7 @@ function paperWall(mesh, lengthCm, offset) {
 }
 function fitWallpaper() {
   const wp = CONFIG.room.wallpaper, C = CONFIG.room.ceiling;
+  if (LOOK?.wl.mode === 'paint') { for (const { mesh } of papered) mesh.material = mat.wallPaint; return; }
   for (const { mesh, length, offset } of papered) {
     // Wall meshes are ShapeGeometry, so their UVs are in scene metres along the wall and up it
     if (mat.floral.map.userData.mural) {           // the real strip: one wall-height tall, repeats sideways
@@ -629,11 +711,167 @@ function clothMat(hex) {
   if (!cloth.has(hex)) cloth.set(hex, new THREE.MeshStandardMaterial({ color: hex, roughness: 0.95 }));
   return cloth.get(hex);
 }
-const ginghamTex = ginghamTexture();
+let baseTex = ginghamTexture();                   // the bed base's pattern, replaced by the Look panel
+const baseMats = [];                              // one material per base face, so the pattern can be swapped in place
 function ginghamMat(wCm, hCm) {
-  const tex = ginghamTex.clone();
-  tex.repeat.set(wCm / ginghamTex.userData.tileCm, hCm / ginghamTex.userData.tileCm);
-  return new THREE.MeshStandardMaterial({ map: tex, roughness: 1 });
+  const m = new THREE.MeshStandardMaterial({ roughness: 1 });
+  m.userData = { wCm, hCm };
+  baseMats.push(m);
+  fitBaseMat(m);
+  return m;
+}
+function fitBaseMat(m) {
+  const tex = baseTex.clone();
+  tex.repeat.set(m.userData.wCm / baseTex.userData.tileCm, m.userData.hCm / baseTex.userData.tileCm);
+  tex.needsUpdate = true;
+  m.map = tex; m.needsUpdate = true;
+}
+
+// ---------------------------------------------------------------------------
+// Look: materials and colours, from the panel top-right. Every surface has a few fields; a mood is
+// a full set of values. The URL carries the mood plus any surface that differs from it, e.g.
+// ?mood=nocturne&cu=7a1a20.velvet.80 (fields in the order listed below, colours as hex).
+// ---------------------------------------------------------------------------
+const LOOK_SCHEMA = {
+  hb: { label: 'Headboard', fields: [
+    ['color', 'color', { chips: ['b6ada6', 'd9cfbf', '3a0f48', '3f5a44', 'b5573c', '3a3a3d', '7a5c4a', '2e3b55'] }],
+    ['weave', 'select', { options: { smooth: 'Smooth', linen: 'Linen', boucle: 'Bouclé', velvet: 'Velvet' } }],
+    ['coarse', 'range', { label: 'Coarseness' }],
+    ['plush', 'range', { label: 'Plushness' }] ] },
+  ln: { label: 'Bed linen', fields: [
+    ['color', 'color', { chips: ['f1ece3', 'f6f3ee', 'ffffff', '4a1452', 'b9c2ad', 'e5cfae', 'a9b4c4', '3a3a3d'] }],
+    ['finish', 'select', { options: { cotton: 'Crisp cotton', linen: 'Linen', sateen: 'Sateen' } }],
+    ['coarse', 'range', { label: 'Coarseness' }] ] },
+  pl: { label: 'Pillows', fields: [
+    ['color', 'color', { chips: ['f8f6f1', 'ffffff', '5a1a62', 'c7cfbc', 'efdcc0', 'b6ada6', '3a3a3d', 'a9b4c4'] }] ] },
+  bb: { label: 'Bed base', fields: [
+    ['pattern', 'select', { options: { gingham: 'Gingham', stripe: 'Stripe', plain: 'Plain' } }],
+    ['color', 'color', { chips: ['f0e7da', 'ece8e1', 'd9d7c9', 'f1e3cf', '3b1f2a', '8a8a8e', 'c9c3b8', 'e8dcd0'] }],
+    ['color2', 'color', { label: 'Second', chips: ['704e4e', 'b9b3aa', '2f4a3a', 'c98a3e', '3b1f2a', '8a8a8e', '4a4f55', '9c7b4a'] }],
+    ['size', 'range', { label: 'Check size', min: 2, max: 12, unit: 'cm' }] ] },
+  cu: { label: 'Curtain', fields: [
+    ['color', 'color', { chips: ['5c1d22', '5a1016', 'd8d0c2', '1f3a2e', 'a84a2f', '2b2b2e', '3b2a55', 'c9a98a'] }],
+    ['fabric', 'select', { options: { velvet: 'Velvet', linen: 'Linen', cotton: 'Cotton' } }],
+    ['folds', 'range', { label: 'Fold depth' }] ] },
+  fp: { label: 'Frame paint', fields: [
+    ['color', 'color', { chips: ['1a0d08', '120a0c', '2e2c2a', '0f1a14', '241510', '111111', '2b2a3a', '3b1f2a'] }],
+    ['sheen', 'select', { options: { matte: 'Matte', eggshell: 'Eggshell', satin: 'Satin' } }] ] },
+  wd: { label: 'Wood', fields: [
+    ['species', 'select', { options: { blackwalnut: 'Black walnut', darkwalnut: 'Dark walnut', midwalnut: 'Mid walnut', oak: 'Oak', smokedoak: 'Smoked oak', blackash: 'Black ash' } }],
+    ['gloss', 'range', { label: 'Gloss' }] ] },
+  mt: { label: 'Metal', fields: [
+    ['finish', 'select', { options: { brass: 'Brass', black: 'Black', chrome: 'Chrome' } }] ] },
+  wl: { label: 'Walls', fields: [
+    ['mode', 'select', { options: { mural: 'Blooming Bouquet mural', paint: 'Plain paint' } }],
+    ['color', 'color', { chips: ['eeece7', 'efece6', 'e9d9c6', 'dcdcd8', '2a1b22', '1e2a22', 'c9c3b8', 'b9c2ad'] }] ] },
+  df: { label: 'Door frame', fields: [
+    ['color', 'color', { chips: ['d4cfc7', 'e4e0d9', '3a2a30', '2c3a30', 'd8c7b4', 'c9c9c5', '1a0d08', 'b6ada6'] }] ] },
+  le: { label: 'LED light', fields: [
+    ['tone', 'select', { options: { warm: 'Warm white', neutral: 'Neutral white', cool: 'Cool white' } }] ] },
+};
+const WOODS = { blackwalnut: [54, 34, 24], darkwalnut: [82, 53, 35], midwalnut: [118, 76, 48], oak: [196, 164, 120], smokedoak: [96, 82, 66], blackash: [38, 34, 32] };
+const METALS = { brass: [0xd1aa5e, 0.95, 0.22], black: [0x1b1b1b, 0.6, 0.45], chrome: [0xd0d3d6, 0.95, 0.25] };
+const LED_TONES = { warm: 0xffd9a8, neutral: 0xfff0de, cool: 0xf2f5ff };
+const MOODS = {
+  drawn:    { label: 'As drawn',     hb: { color: 'b6ada6', weave: 'boucle', coarse: 50, plush: 15 }, ln: { color: 'f1ece3', finish: 'cotton', coarse: 30 }, pl: { color: 'f8f6f1' },
+              bb: { pattern: 'gingham', color: 'f0e7da', color2: '704e4e', size: 4 }, cu: { color: '5c1d22', fabric: 'velvet', folds: 60 }, fp: { color: '1a0d08', sheen: 'matte' },
+              wd: { species: 'darkwalnut', gloss: 45 }, mt: { finish: 'brass' }, wl: { mode: 'mural', color: 'eeece7' }, df: { color: 'd4cfc7' }, le: { tone: 'warm' } },
+  nocturne: { label: 'Nocturne',     hb: { color: '3a0f48', weave: 'velvet', coarse: 30, plush: 90 }, ln: { color: '4a1452', finish: 'sateen', coarse: 20 }, pl: { color: '5a1a62' },
+              bb: { pattern: 'plain', color: '2a0c2e', color2: '2a0c2e', size: 4 }, cu: { color: '5a0a12', fabric: 'velvet', folds: 70 }, fp: { color: '120a0c', sheen: 'matte' },
+              wd: { species: 'blackwalnut', gloss: 55 }, mt: { finish: 'brass' }, wl: { mode: 'mural', color: '2a1b22' }, df: { color: '3a2a30' }, le: { tone: 'warm' } },
+  scandi:   { label: 'Scandi light', hb: { color: 'd9cfbf', weave: 'linen', coarse: 60, plush: 10 }, ln: { color: 'f6f3ee', finish: 'cotton', coarse: 50 }, pl: { color: 'f6f3ee' },
+              bb: { pattern: 'gingham', color: 'ece8e1', color2: 'b9b3aa', size: 4 }, cu: { color: 'd8d0c2', fabric: 'linen', folds: 40 }, fp: { color: '2e2c2a', sheen: 'eggshell' },
+              wd: { species: 'oak', gloss: 25 }, mt: { finish: 'black' }, wl: { mode: 'paint', color: 'efece6' }, df: { color: 'e4e0d9' }, le: { tone: 'neutral' } },
+  forest:   { label: 'Forest',       hb: { color: '3f5a44', weave: 'velvet', coarse: 40, plush: 85 }, ln: { color: 'b9c2ad', finish: 'linen', coarse: 40 }, pl: { color: 'c7cfbc' },
+              bb: { pattern: 'stripe', color: 'd9d7c9', color2: '2f4a3a', size: 3 }, cu: { color: '1f3a2e', fabric: 'velvet', folds: 60 }, fp: { color: '0f1a14', sheen: 'matte' },
+              wd: { species: 'smokedoak', gloss: 35 }, mt: { finish: 'brass' }, wl: { mode: 'mural', color: '1e2a22' }, df: { color: '2c3a30' }, le: { tone: 'warm' } },
+  clay:     { label: 'Clay',         hb: { color: 'b5573c', weave: 'boucle', coarse: 55, plush: 20 }, ln: { color: 'e5cfae', finish: 'linen', coarse: 45 }, pl: { color: 'efdcc0' },
+              bb: { pattern: 'stripe', color: 'f1e3cf', color2: 'c98a3e', size: 6 }, cu: { color: 'a84a2f', fabric: 'cotton', folds: 45 }, fp: { color: '241510', sheen: 'matte' },
+              wd: { species: 'midwalnut', gloss: 45 }, mt: { finish: 'brass' }, wl: { mode: 'paint', color: 'e9d9c6' }, df: { color: 'd8c7b4' }, le: { tone: 'warm' } },
+  hotel:    { label: 'Hotel',        hb: { color: '3a3a3d', weave: 'boucle', coarse: 50, plush: 25 }, ln: { color: 'ffffff', finish: 'sateen', coarse: 15 }, pl: { color: 'ffffff' },
+              bb: { pattern: 'plain', color: '8a8a8e', color2: '8a8a8e', size: 4 }, cu: { color: '2b2b2e', fabric: 'velvet', folds: 60 }, fp: { color: '111111', sheen: 'satin' },
+              wd: { species: 'blackash', gloss: 55 }, mt: { finish: 'chrome' }, wl: { mode: 'paint', color: 'dcdcd8' }, df: { color: 'c9c9c5' }, le: { tone: 'neutral' } },
+};
+let LOOK = null, LOOK_MOOD = 'drawn';
+const moodValues = m => Object.fromEntries(Object.keys(LOOK_SCHEMA).map(k => [k, { ...MOODS[m][k] }]));
+const hex = h => parseInt(h, 16);
+const rgbOf = h => [0, 2, 4].map(i => parseInt(h.slice(i, i + 2), 16));
+const lighten = (h, f, add = 0) => rgbOf(h).map(v => Math.min(255, Math.round(v * f + add)));
+const toHex = rgb => rgb.map(v => Math.max(0, Math.min(255, Math.round(v))).toString(16).padStart(2, '0')).join('');
+const texCache = new Map();
+function cachedTex(key, make) { if (!texCache.has(key)) texCache.set(key, make()); return texCache.get(key); }
+const linenTex = linenTexture();
+
+// Set a textile material's weave: which bump/colour map, how coarse, how much velvet-like sheen.
+function dressTextile(m, { color, weave, coarse = 50, plush = 0, sizeCm = [160, 100] }) {
+  m.color.setHex(hex(color));
+  const scale = 0.5 + 1.5 * coarse / 100;
+  const src = weave === 'boucle' ? boucle : (weave === 'linen' || weave === 'cotton') ? linenTex : null;
+  if (src) {
+    const tile = (weave === 'boucle' ? 8 : 2) * scale;
+    const t = src.clone(); t.repeat.set(sizeCm[0] / tile, sizeCm[1] / tile); t.needsUpdate = true;
+    m.map = weave === 'boucle' ? t : null;
+    m.bumpMap = t;
+    m.bumpScale = (weave === 'boucle' ? 0.004 : weave === 'linen' ? 0.0015 : 0.0006) * scale;
+  } else { m.map = null; m.bumpMap = null; }
+  m.roughness = weave === 'velvet' ? 0.65 : weave === 'sateen' ? 0.5 : 0.95;
+  m.sheen = weave === 'velvet' ? Math.max(0.6, plush / 100) : weave === 'sateen' ? 0.5 : plush / 100;
+  m.sheenRoughness = weave === 'velvet' ? 0.45 : 0.7;
+  m.sheenColor.setRGB(...lighten(color, weave === 'velvet' ? 1.6 : 0.6, weave === 'velvet' ? 10 : 80).map(v => v / 255), THREE.SRGBColorSpace);   // velvet's sheen stays in the fabric's own hue
+  m.needsUpdate = true;
+}
+
+function applyLook(keys = Object.keys(LOOK_SCHEMA)) {
+  const L = LOOK;
+  for (const k of keys) {
+    if (k === 'hb') dressTextile(mat.fabric, { ...L.hb, sizeCm: [164, 98] });
+    if (k === 'ln') dressTextile(mat.topper, { color: L.ln.color, weave: L.ln.finish, coarse: L.ln.coarse, sizeCm: [160, 200] });
+    if (k === 'ln' || k === 'pl') dressTextile(mat.pillow, { color: L.pl.color, weave: L.ln.finish, coarse: L.ln.coarse, sizeCm: [70, 50] });
+    if (k === 'bb') {
+      baseTex = cachedTex(`base:${L.bb.pattern}:${L.bb.color}:${L.bb.color2}:${L.bb.size}`, () => ginghamTexture(rgbOf(L.bb.color), rgbOf(L.bb.color2), L.bb.size, L.bb.pattern));
+      for (const m of baseMats) fitBaseMat(m);
+    }
+    if (k === 'cu') dressTextile(mat.curtain, { color: L.cu.color, weave: L.cu.fabric, coarse: 50, plush: L.cu.fabric === 'velvet' ? 90 : 0, sizeCm: [60, 240] });
+    if (k === 'fp') { mat.paint.color.setHex(hex(L.fp.color)); mat.paint.roughness = { matte: 0.75, eggshell: 0.5, satin: 0.3 }[L.fp.sheen]; }
+    if (k === 'wd') {
+      const base = WOODS[L.wd.species];
+      mat.walnut.map = cachedTex(`wood:${L.wd.species}`, () => walnutTexture(base));
+      mat.walnut.roughness = 0.7 - 0.45 * L.wd.gloss / 100; mat.walnut.needsUpdate = true;
+      const lum = (base[0] * 0.3 + base[1] * 0.59 + base[2] * 0.11);
+      mat.inlay.color.setRGB(...(lum < 120 ? base.map(v => Math.min(255, v * 1.15 + 12)) : base.map(v => v * 0.72)).map(v => v / 255), THREE.SRGBColorSpace);   // a faint line: barely lighter on dark woods, darker on pale ones (values are sRGB)
+    }
+    if (k === 'mt') { const [c, me, ro] = METALS[L.mt.finish]; mat.brass.color.setHex(c); mat.brass.metalness = me; mat.brass.roughness = ro; }
+    if (k === 'wl') { mat.wallPaint.color.setHex(hex(L.wl.color)); fitWallpaper(); }
+    if (k === 'df') mat.damasti.color.setHex(hex(L.df.color));
+    if (k === 'le') {
+      const c = LED_TONES[L.le.tone];
+      mat.ledStrip.emissive.setHex(c); mat.trayLedStrip.emissive.setHex(c);
+      if (typeof ledLight !== 'undefined' && ledLight) ledLight.color.setHex(c);
+      if (typeof trayLight !== 'undefined' && trayLight) trayLight.color.setHex(c);
+    }
+  }
+}
+function setMood(name) {
+  LOOK_MOOD = name; LOOK = moodValues(name);
+  applyLook(); rebuild(); renderLookPanel(); writeUrl();
+}
+function setLookField(surface, field, value) {
+  LOOK[surface][field] = value;
+  applyLook([surface]);
+  if (surface === 'cu' && field === 'folds') rebuild();          // the curtain's folds are geometry
+  renderLookPanel(); writeUrl();
+}
+// URL form of a surface: its fields in schema order, dot-separated
+const encodeSurface = k => LOOK_SCHEMA[k].fields.map(([f]) => LOOK[k][f]).join('.');
+function decodeSurface(k, str) {
+  const parts = str.split('.'), out = {};
+  LOOK_SCHEMA[k].fields.forEach(([f, type, opts], i) => {
+    const v = parts[i]; if (v == null || v === '') return;
+    if (type === 'color') { if (/^[0-9a-f]{6}$/i.test(v)) out[f] = v.toLowerCase(); }
+    else if (type === 'select') { if (v in opts.options) out[f] = v; }
+    else { const n = Number(v); if (Number.isFinite(n)) out[f] = Math.max(opts.min ?? 0, Math.min(opts.max ?? 100, n)); }
+  });
+  return out;
 }
 
 // Geometry helpers: boxes take a size and their min corner, all in cm.
@@ -673,6 +911,41 @@ function placed(geo, material, x, y, z) {
   m.castShadow = true; m.receiveShadow = true;
   return m;
 }
+// A pillow like a real 60 x 80 one standing against a headboard: the filling sags into the lower
+// half, the top edge is thin and slumps forward, the fabric pulls into folds from the corners, and
+// a flat piped seam runs round the outside. w across, h up, d thick at the fattest point.
+function pillow(w, h, d, seed = 1) {
+  const geo = new THREE.BoxGeometry(w * M, h * M, d * M, 72, 54, 2);
+  const pos = geo.attributes.position, rand = mulberry32(seed), ph = Array.from({ length: 8 }, () => rand() * 6.28);
+  const seamAt = 0.93;                                                          // body ends here; a flat seam lip beyond
+  for (let i = 0; i < pos.count; i++) {
+    const x = pos.getX(i) / (w * M / 2), y = pos.getY(i) / (h * M / 2), z = pos.getZ(i);
+    const e = Math.pow(Math.pow(Math.abs(x), 5) + Math.pow(Math.abs(y), 5), 1 / 5);   // rounded-rectangle radius, 1 at the seam
+    const inBody = Math.min(1, e / seamAt);
+    // Filling: a soft dome, fatter towards the bottom (sag) and thinner along the top edge
+    let f = Math.pow(Math.max(0, 1 - Math.pow(inBody, 2.4)), 0.5);
+    f *= 1 - 0.32 * (y + 1) / 2;                                                 // 32% thinner at the top than the bottom
+    f *= 1 - 0.25 * Math.pow(Math.abs(x * y), 2);                                // corners pinched
+    // Folds: fabric pulled from the corners towards the middle, plus small random creases near the seam
+    const pull = 0.5 * Math.pow(inBody, 3) * Math.sin(5.5 * Math.atan2(y, x) + ph[0]) * Math.sin(3 * inBody * Math.PI + ph[1]);
+    const crease = 0.3 * Math.pow(inBody, 2) * (Math.sin(7.3 * x + 2 * y + ph[2]) * Math.sin(5.1 * y + ph[3]) + 0.5 * Math.sin(11 * y - 4 * x + ph[4]));
+    const lump = 0.6 * Math.sin(2.1 * x + ph[5]) * Math.sin(1.7 * y + ph[6]) * f;   // slow unevenness in the filling
+    const thick = e > seamAt ? 0.25 : d / 2 * f + (pull + crease + lump) * f;     // the seam lip is 5 mm thick
+    // Slump: the thin top edge leans forward over the fat part below it
+    const slump = Math.max(0, y) * Math.max(0, y) * 2.5;                         // cm, on both faces
+    pos.setZ(i, Math.sign(z) * thick * M + slump * M);
+    // Outline: corners rounded a little, and the sides bowed out by the filling below the middle
+    const bow = 1 + 0.03 * (1 - Math.abs(y)) * (1 - (y + 1) / 2);
+    pos.setX(i, x * bow * (1 - 0.04 * Math.pow(Math.abs(y), 10)) * (w * M / 2));
+    pos.setY(i, y * (1 - 0.05 * Math.pow(Math.abs(x), 10)) * (h * M / 2));
+  }
+  const merged = BufferGeometryUtils.mergeVertices(geo, 1e-4);
+  merged.computeVertexNormals();
+  const m = new THREE.Mesh(merged, mat.pillow);
+  m.castShadow = true; m.receiveShadow = true;
+  return m;
+}
+
 // A box whose six faces each get a correctly scaled textile pattern (materialFor(faceWidth, faceHeight)).
 function patternedBox(w, h, d, x, y, z, materialFor) {
   const mats = [materialFor(d, h), materialFor(d, h), materialFor(w, d), materialFor(w, d), materialFor(w, h), materialFor(w, h)];
@@ -776,11 +1049,11 @@ function buildRoom() {
 // Curtain: a gathered panel with soft vertical folds, hanging from rings on the rod to just off the floor.
 function buildCurtain(x0, x1, rodY, z) {
   const g = new THREE.Group();
-  const w = x1 - x0, bottom = 1.5, h = rodY - 2 - bottom, waves = 7, amp = 3.2;
-  const rod = placed(new THREE.CylinderGeometry(0.8 * M, 0.8 * M, (w + 2) * M, 16), mat.chrome, (x0 + x1) / 2, rodY, z);
+  const w = x1 - x0, bottom = 1.5, h = rodY - 2 - bottom, waves = 7, amp = 0.8 + 4 * (LOOK?.cu.folds ?? 60) / 100;   // fold depth from the Look panel
+  const rod = placed(new THREE.CylinderGeometry(0.8 * M, 0.8 * M, (w + 2) * M, 16), mat.brass, (x0 + x1) / 2, rodY, z);
   rod.rotation.z = Math.PI / 2;
   g.add(rod);
-  for (const x of [x0, x1 - 1]) g.add(box(1, 2, 3, x, rodY - 1, z - 1.5, mat.chrome));
+  for (const x of [x0, x1 - 1]) g.add(box(1, 2, 3, x, rodY - 1, z - 1.5, mat.brass));
   const geo = new THREE.PlaneGeometry(w * M, h * M, 140, 1);
   const pos = geo.attributes.position;
   const rand = mulberry32(9), jitter = Array.from({ length: waves * 2 + 2 }, () => (rand() - 0.5) * 0.35);
@@ -800,7 +1073,7 @@ function buildCurtain(x0, x1, rodY, z) {
   slide.add(panel);
   for (let k = 0; k <= waves * 2; k++) {                       // eyelet rings on every crest and trough
     const x = (k / (waves * 2)) * w;
-    const ring = placed(new THREE.TorusGeometry(2 * M, 0.3 * M, 8, 24), mat.chrome, Math.min(Math.max(x, 2.5), w - 2.5), rodY, z);
+    const ring = placed(new THREE.TorusGeometry(2 * M, 0.3 * M, 8, 24), mat.brass, Math.min(Math.max(x, 2.5), w - 2.5), rodY, z);
     ring.rotation.y = Math.PI / 2;
     slide.add(ring);
   }
@@ -934,7 +1207,6 @@ function buildWall(cfg) {
     lampGroup.add(placed(new THREE.CylinderGeometry(8 * M, 8.3 * M, 1.4 * M, 40), mat.brass, lp.x, ly + 0.7, lp.z));
     lampGroup.add(placed(new THREE.CylinderGeometry(0.8 * M, 0.8 * M, 19 * M, 16), mat.brass, lp.x, ly + 1.4 + 9.5, lp.z));
     const dome = placed(new THREE.SphereGeometry(8 * M, 40, 20, 0, Math.PI * 2, 0, Math.PI / 2), mat.brass, lp.x, ly + 20, lp.z);
-    dome.material = new THREE.MeshStandardMaterial({ color: 0xd1aa5e, metalness: 0.95, roughness: 0.22, side: THREE.DoubleSide });
     lampGroup.add(dome);
     const bulb = placed(new THREE.SphereGeometry(3 * M, 20, 12), mat.bulb, lp.x, ly + 20.5, lp.z);
     bulb.castShadow = false;
@@ -1217,13 +1489,22 @@ function buildBed(cfg, wall) {
     g.add(rbox(Wd - 2, cfg.topperTop - cfg.baseTop, L - 2, x0 + 1, cfg.baseTop, z0 + 1, mat.topper, 2.5));
   }
   g.userData.foot = cfg.frame ? wall.depth + g.userData.frameLength : z0 + L;
-  // Pillows standing against the headboard
-  const pw = (Wd - 10 - (cfg.pillows - 1) * 6) / cfg.pillows, ph = 26, pd = 13;
+  // Pillows: 60 x 80 ones (Familon Superior size), two per side, the back one leaning on the
+  // headboard and the front one slouched against it, hotel style
+  const pw = Math.min(80, (Wd - 8 - (cfg.pillows - 1) * 4) / cfg.pillows), ph = 60;
   for (let i = 0; i < cfg.pillows; i++) {
-    const p = rbox(pw, ph, pd, 0, 0, 0, mat.pillow, 5);
-    p.position.set((x0 + 5 + i * (pw + 6) + pw / 2) * M, (cfg.topperTop + ph / 2 - 1) * M, (z0 + pd / 2 + 1) * M);
-    p.rotation.x = -0.18;
-    g.add(p);
+    const cx = x0 + Wd / 2 + (i - (cfg.pillows - 1) / 2) * (pw + 4);
+    const back = pillow(pw, ph, 20, 11 + i);
+    back.position.set(cx * M, (cfg.topperTop + ph / 2 - 5) * M, (z0 + 13) * M);
+    back.rotation.x = -0.3;
+    back.rotation.z = (i ? 1 : -1) * 0.02;
+    const front = pillow(pw, ph, 18, 21 + i);
+    front.position.set(cx * M, (cfg.topperTop + ph / 2 - 12) * M, (z0 + 30) * M);
+    front.rotation.x = -0.7;
+    front.rotation.z = (i ? -1 : 1) * 0.04;
+    back.userData.pillow = front.userData.pillow = true;
+    back.visible = front.visible = state.pillows;
+    g.add(back, front);
   }
   return g;
 }
@@ -1425,6 +1706,7 @@ function rebuild() {
       smallLights.push(pl);
     }
   }
+  if (LOOK) applyLook(['le']);
   scene.add(room, wall, bed, doors, dims, ledLight, ...smallLights);
   if (keep) for (const k of Object.keys(keep)) pieces(k).forEach((p, i) => { p.userData.target = p.userData.open = keep[k][i] ?? 0; });
   syncPieceControls();
@@ -1473,7 +1755,7 @@ function renderSpec() {
 // ---------------------------------------------------------------------------
 // Day / evening blending
 // ---------------------------------------------------------------------------
-const state = { t: 0, target: 0, led: EFF.wall.led.default, ledT: EFF.wall.led.default, ledOn: true, lampOn: true, ceilingOn: true, curtainOpen: false, curtainT: 0 };
+const state = { t: 0, target: 0, led: EFF.wall.led.default, ledT: EFF.wall.led.default, ledOn: true, lampOn: true, ceilingOn: true, curtainOpen: false, curtainT: 0, pillows: true };
 const smooth = v => v * v * (3 - 2 * v);
 const bg = new THREE.Color();
 const cA = new THREE.Color(), cB = new THREE.Color();
@@ -1591,6 +1873,15 @@ function writeUrl() {
   const led = state.ledOn ? Math.round(state.led * 100) : 0;
   if (led !== Math.round(EFF.wall.led.default * 100)) { q.set('led', led); t.push(`led=${led}`); }
   if (!document.getElementById('opt-dims').checked) { q.set('dims', 'off'); t.push('nodims'); }
+  if (!state.pillows) { q.set('pillows', 'off'); t.push('nopillows'); }
+  if (LOOK) {                                     // the mood, then only the surfaces that differ from it
+    if (LOOK_MOOD !== 'drawn') { q.set('mood', LOOK_MOOD); t.push(`mood=${LOOK_MOOD}`); }
+    const base = moodValues(LOOK_MOOD);
+    for (const k of Object.keys(LOOK_SCHEMA)) {
+      const enc = encodeSurface(k), ref = LOOK_SCHEMA[k].fields.map(([f]) => base[k][f]).join('.');
+      if (enc !== ref) { q.set(k, enc); t.push(`${k}=${enc}`); }
+    }
+  }
   const qs = q.toString().replace(/%2C/g, ',');
   try { history.replaceState(null, '', location.pathname + (qs ? '?' + qs : '')); }
   catch { history.replaceState(null, '', t.length ? '#' + t.join(',') : location.pathname); }
@@ -1622,6 +1913,13 @@ document.getElementById('opt-pullouts').addEventListener('change', e => setPullo
 function setBedDrawers(out) { setAll('drawers', out); }
 document.getElementById('opt-beddrawers').addEventListener('change', e => setBedDrawers(e.target.checked));
 document.getElementById('opt-dims').addEventListener('change', e => { dims.visible = e.target.checked; writeUrl(); });
+function setPillows(on) {
+  state.pillows = on;
+  document.getElementById('opt-pillows').checked = on;
+  bed?.traverse(o => { if (o.userData.pillow) o.visible = on; });
+  writeUrl();
+}
+document.getElementById('opt-pillows').addEventListener('change', e => setPillows(e.target.checked));
 // Collapsible spec panel; the choice is remembered in this browser
 const specPanel = document.getElementById('spec'), foldBtn = document.getElementById('btn-fold');
 function setFold(collapsed) {
@@ -1632,7 +1930,80 @@ function setFold(collapsed) {
   try { localStorage.setItem('bedwall-spec-collapsed', collapsed ? '1' : '0'); } catch {}
 }
 foldBtn.addEventListener('click', () => setFold(!specPanel.classList.contains('collapsed')));
+const dimsFold = document.getElementById('dims-fold');
+dimsFold.addEventListener('toggle', () => { try { localStorage.setItem('bedwall-dims-folded', dimsFold.open ? '0' : '1'); } catch {} });
+try { if (localStorage.getItem('bedwall-dims-folded') === '1') dimsFold.open = false; } catch {}
 try { if (localStorage.getItem('bedwall-spec-collapsed') === '1') setFold(true); } catch {}
+// Look panel: moods as chips, then one row per surface that opens to its controls
+const lookPanel = document.getElementById('look'), foldLookBtn = document.getElementById('btn-fold-look');
+let openSurface = null;
+function renderLookPanel() {
+  const moods = document.getElementById('moods');
+  moods.replaceChildren(...Object.entries(MOODS).map(([k, m]) => {
+    const b = document.createElement('button'); b.textContent = m.label; b.setAttribute('aria-pressed', String(k === LOOK_MOOD));
+    b.addEventListener('click', () => setMood(k)); return b;
+  }));
+  const list = document.getElementById('surfaces');
+  list.replaceChildren(...Object.entries(LOOK_SCHEMA).map(([k, sc]) => {
+    const row = document.createElement('div'); row.className = 'surface' + (openSurface === k ? ' open' : '');
+    const head = document.createElement('button');
+    const sw = document.createElement('span'); sw.className = 'sw';
+    const colorField = sc.fields.find(([, t]) => t === 'color');
+    sw.style.background = colorField ? '#' + LOOK[k][colorField[0]] : k === 'wd' ? '#' + toHex(WOODS[LOOK.wd.species]) : k === 'mt' ? '#' + METALS[LOOK.mt.finish][0].toString(16).padStart(6, '0') : 'transparent';
+    const name = document.createElement('span'); name.textContent = sc.label;
+    const sum = document.createElement('span'); sum.className = 'sum';
+    sum.textContent = sc.fields.filter(([, t]) => t === 'select').map(([f, , o]) => o.options[LOOK[k][f]]).join(', ');
+    head.append(sw, name, sum);
+    head.addEventListener('click', () => { openSurface = openSurface === k ? null : k; renderLookPanel(); });
+    const ctl = document.createElement('div'); ctl.className = 'ctl';
+    for (const [f, type, opts] of sc.fields) {
+      const lab = document.createElement('label');
+      const cap = document.createElement('span'); cap.textContent = opts.label ?? (type === 'color' ? 'Colour' : f[0].toUpperCase() + f.slice(1));
+      lab.append(cap);
+      if (type === 'select') {
+        const sel = document.createElement('select');
+        for (const [v, t] of Object.entries(opts.options)) { const o = document.createElement('option'); o.value = v; o.textContent = t; sel.append(o); }
+        sel.value = LOOK[k][f];
+        sel.addEventListener('change', e => setLookField(k, f, e.target.value));
+        lab.append(sel);
+      } else if (type === 'range') {
+        const r = document.createElement('input'); r.type = 'range'; r.min = opts.min ?? 0; r.max = opts.max ?? 100; r.step = 1; r.value = LOOK[k][f];
+        r.addEventListener('input', e => { LOOK[k][f] = Number(e.target.value); applyLook([k]); });
+        r.addEventListener('change', e => setLookField(k, f, Number(e.target.value)));
+        lab.append(r);
+      } else {
+        const chips = document.createElement('span'); chips.className = 'chips';
+        for (const c of opts.chips) {
+          const b = document.createElement('button'); b.style.background = '#' + c; b.title = '#' + c;
+          b.setAttribute('aria-pressed', String(LOOK[k][f] === c));
+          b.addEventListener('click', () => setLookField(k, f, c)); chips.append(b);
+        }
+        const pick = document.createElement('input'); pick.type = 'color'; pick.value = '#' + LOOK[k][f]; pick.title = 'Any colour';
+        pick.addEventListener('input', e => { LOOK[k][f] = e.target.value.slice(1); applyLook([k]); });
+        pick.addEventListener('change', e => setLookField(k, f, e.target.value.slice(1)));
+        chips.append(pick);
+        lab.append(chips);
+      }
+      ctl.append(lab);
+    }
+    row.append(head, ctl);
+    return row;
+  }));
+}
+function setLookFold(collapsed) {
+  lookPanel.classList.toggle('collapsed', collapsed);
+  foldLookBtn.setAttribute('aria-expanded', String(!collapsed));
+  foldLookBtn.innerHTML = collapsed ? '&#9666;' : '&#9662;';
+  foldLookBtn.title = collapsed ? 'Expand the panel' : 'Collapse the panel';
+  try { localStorage.setItem('bedwall-look-collapsed', collapsed ? '1' : '0'); } catch {}
+}
+foldLookBtn.addEventListener('click', () => setLookFold(!lookPanel.classList.contains('collapsed')));
+try { if (localStorage.getItem('bedwall-look-collapsed') === '1') setLookFold(true); } catch {}
+document.getElementById('btn-copy').addEventListener('click', async e => {
+  try { await navigator.clipboard.writeText(location.href); e.target.textContent = 'Copied'; }
+  catch { prompt('Copy this link', location.href); }
+  setTimeout(() => { e.target.textContent = 'Copy link'; }, 1500);
+});
 const controlsBar = document.getElementById('controls'), foldControlsBtn = document.getElementById('btn-fold-controls');
 function setControlsFold(collapsed) {
   controlsBar.classList.toggle('collapsed', collapsed);
@@ -1710,11 +2081,19 @@ if (query.get('lamp') === 'off') tokens.add('lamp-off');
 if (query.get('ceiling') === 'off') tokens.add('ceiling-off');
 if (query.get('curtain') === 'open') tokens.add('curtain');
 if (query.get('dims') === 'off') tokens.add('nodims');
+if (query.get('pillows') === 'off') tokens.add('nopillows');
 for (const k of Object.keys(CONFIG.features)) if (tokens.has(k)) { CONFIG.features[k] = true; for (const o of EXCLUDES[k] ?? []) CONFIG.features[o] = false; }
 { const lm = query.get('lampmodel') ?? [...tokens].find(tk => tk.startsWith('lampmodel='))?.slice(10);
   if (lm && [...document.getElementById('opt-lamp').options].some(o => o.value === lm)) CONFIG.interior.lamp = lm; }
 syncFeatures();
 syncInterior();
+{ const m = query.get('mood') ?? [...tokens].find(tk => tk.startsWith('mood='))?.slice(5);
+  LOOK_MOOD = m in MOODS ? m : 'drawn'; LOOK = moodValues(LOOK_MOOD);
+  for (const k of Object.keys(LOOK_SCHEMA)) {
+    const v = query.get(k) ?? [...tokens].find(tk => tk.startsWith(k + '='))?.slice(k.length + 1);
+    if (v) Object.assign(LOOK[k], decodeSurface(k, v));
+  }
+  applyLook(); renderLookPanel(); }
 rebuild();
 // Pieces: 'open'/'out' means all of them, otherwise a list of 1-based numbers
 const pieceParam = (name, allWord, token) => {
@@ -1739,6 +2118,7 @@ for (const tk of tokens) if (tk.startsWith('led=')) {
   state.ledOn = v > 0; if (v > 0) state.led = v / 100; state.ledT = v / 100; dimmer.value = v;
 }
 if (tokens.has('nodims')) { document.getElementById('opt-dims').checked = false; dims.visible = false; }
+if (tokens.has('nopillows')) setPillows(false);
 urlReady = true;
 writeUrl();
 
