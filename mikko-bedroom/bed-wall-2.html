@@ -310,7 +310,7 @@ const CONFIG = {
     hatch: { x: 178, y: 10, w: 11, h: 40 },
     lamp: { x: 48, z: 12 },               // brass table lamp on the ledge, cable through a grommet
     niches: { w: 9, d: 20, slots: [            // open slots in the front of each upright, bottom to top: height above floor, height, what it holds
-      { y: 60, h: 12, holds: 'phone' },          // phone lying on a wireless charging pad let into the floor
+      { y: 60, h: 12, holds: 'phone', outlets: { sockets: 1, usbc: 2 } },   // phone on a wireless charging pad; a socket plate on the upright's face just below the niche
       { y: 76, h: 16, holds: 'glasses' },        // reading glasses, or whatever
       { y: 96, h: 27, holds: 'bottle' },         // a 0.5 l soda bottle standing up
     ] },
@@ -676,7 +676,9 @@ const mat = {
   trayLedStrip: new THREE.MeshStandardMaterial({ color: 0xfffaf2, emissive: 0xfff0dc, emissiveIntensity: 0 }),   // lid-sensor strip inside the tray
   glow:    new THREE.MeshStandardMaterial({ color: 0xfff4e0, emissive: 0xffc58a, emissiveIntensity: 0 }),   // ceiling light
   bulb:    new THREE.MeshStandardMaterial({ color: 0xfff4e0, emissive: 0xffc58a, emissiveIntensity: 0 }),   // table lamp
-  rondo:   new THREE.MeshStandardMaterial({ color: 0xf4f4f2, roughness: 0.35 }),                            // Rondo Air's white plastic
+  rondo:   new THREE.MeshStandardMaterial({ color: 0xf4f4f2, roughness: 0.35 }),
+  anthracite: new THREE.MeshStandardMaterial({ color: 0x3b3b3c, roughness: 0.6 }),       // Schneider Exxact anthracite, matte
+  anthraciteDeep: new THREE.MeshStandardMaterial({ color: 0x2a2a2b, roughness: 0.55 }),                            // Rondo Air's white plastic
   rondoFace: new THREE.MeshStandardMaterial({ color: 0xffffff, emissive: 0xf4f6ff, emissiveIntensity: 0 }),   // its diffuser
 };
 // Load the real mural from the Rebel Walls CDN and put it on the papered walls once it arrives.
@@ -1103,7 +1105,8 @@ function mirrorPlane(w, h) {
 // Notes shown as tooltips when the cursor rests on a part: why things are the size they are, and
 // what the electrics do. Niche and tray notes take their numbers from CONFIG.
 const TIPS = {
-  phone: (sl, n) => `<b>Phone niche</b>, ${fmt(sl.h)} cm tall, ${fmt(n.w)} wide, ${fmt(n.d)} deep. The phone lies flat on a wireless charging pad let into the floor, wired from inside the upright, so there is normally no cable in sight. A spare USB-C outlet in the back wall is there for a watch, earbuds or a phone that won't charge wirelessly. Tall enough to get fingers under the phone.`,
+  phone: (sl, n) => `<b>Phone niche</b>, ${fmt(sl.h)} cm tall, ${fmt(n.w)} wide, ${fmt(n.d)} deep. The phone lies flat on a wireless charging pad let into the floor, wired from inside the upright, so there is normally no cable in sight. The socket plate just below the niche covers everything else. Tall enough to get fingers under the phone.`,
+  nicheOutlets: o => `<b>Socket plate</b> under the phone niche, Schneider Exxact in anthracite: ${o.usbc} USB-C port${o.usbc > 1 ? 's' : ''} on top and ${o.sockets} Schuko socket${o.sockets > 1 ? 's' : ''} below, flush in the upright's face at about 50 cm, reachable from the pillow. USB-C with Power Delivery charges a laptop, tablet or earbuds; the Schuko takes a lamp or anything else. Both uprights have one.`,
   glasses: (sl, n) => `<b>Glasses niche</b>, ${fmt(sl.h)} cm tall. Room for folded reading glasses, a watch or a paperback on edge. No electrics here; it is the one that stays empty.`,
   bottle: (sl, n) => `<b>Bottle niche</b>, ${fmt(sl.h)} cm tall. A Finnish 0.5 l plastic bottle is about 23 cm, so it lifts in and out upright without tilting, with ${fmt(n.w)} cm of width leaving a finger's room either side.`,
   tray: (iw, depth, d) => `<b>Tray</b> behind the headboard, ${fmt(iw)} × ${fmt(depth)} × ${fmt(d)} cm, under the two lids only. Shallow on purpose: ${fmt(depth)} cm means everything is reachable from above while kneeling on the bed, and nothing gets buried. The part under the lamp is a closed compartment for the electrics.`,
@@ -1261,6 +1264,12 @@ function addUpright(g, cfg, ux, V) {
         ng.add(box(cheek, y1 - y0, n.d, ux + PL - cheek, y0, D - n.d, mat.paint));
         addNicheContents(ng, ux + cheek, y0, D - n.d, n.w, y1 - y0, n.d, slot.holds, ux === 0);
         g.add(ng);
+        if (slot.outlets) {                                                           // flush plate on the upright's face, just under this niche
+          const og = new THREE.Group();
+          og.userData.tip = TIPS.nicheOutlets(slot.outlets);
+          addFacePlate(og, ux + PL / 2, y0 - 2, D, slot.outlets);
+          g.add(og);
+        }
       }
       y = y1;
     }
@@ -1280,8 +1289,6 @@ function addNicheContents(g, x, y, z, w, h, d, holds, left) {
     g.add(pad);
     g.add(placed(new THREE.TorusGeometry(3.6 * M, 0.12 * M, 6, 32), clothMat(0x7c7c80), cx, y + 0.52, front - 9.5).rotateX(Math.PI / 2));   // ring marking the coil
     g.add(rbox(7, 0.8, 14.5, cx - 3.5, y + 0.5, front - 16.5, mat.screen, 0.5));                                           // phone, face up
-    g.add(rbox(3.2, 2.2, 0.5, cx - 1.6, y + 4, z, mat.carcass, 0.3));                                                       // USB-C outlet in the back wall, spare
-    g.add(rbox(0.9, 0.35, 0.3, cx - 0.45, y + 4.9, z + 0.5, mat.screen, 0.1));
   } else if (holds === 'glasses') {
     // Folded reading glasses lying along the niche: the two lenses in a line front to back, arms folded alongside
     const frameMat = mat.black, lens = mat.glass, gz = front - 9;
@@ -1384,6 +1391,29 @@ function addWell(g, cfg) {
   g.add(trayStrip);
   g.userData.trayLed = { x: tx0 + tw / 2, y: lowerTop - 1.5, z: 1.8, w: tw - 4 };
   g.userData.trayWidth = tw - 1;
+}
+
+// Flush vertical plate in the front of an upright, Schneider Exxact style in anthracite: USB-C
+// ports on top, Schuko socket(s) below. cx is the plate's centre across, yTop its top edge, z the
+// face it sits on (facing the room).
+function addFacePlate(g, cx, yTop, z, { sockets = 1, usbc = 2 }) {
+  const pw = 8, ph = 2 + (usbc ? 4 : 0) + sockets * 7, x0 = cx - pw / 2, y0 = yTop - ph;
+  g.add(rbox(pw, ph, 0.6, x0, y0, z - 0.3, mat.anthracite, 0.3));
+  const disc = (r, cy, material, dz = 0.32) => g.add(placed(new THREE.CylinderGeometry(r * M, r * M, 0.04 * M, 28), material, cx, cy, z + dz).rotateX(Math.PI / 2));
+  let y = yTop - 1;
+  if (usbc) {
+    const gap = pw / (usbc + 1);
+    for (let i = 0; i < usbc; i++) {
+      const px = x0 + gap * (i + 1);
+      g.add(rbox(1.4, 2.4, 0.06, px - 0.7, y - 3.2, z + 0.3, mat.anthraciteDeep, 0.03));
+      g.add(rbox(0.85, 0.3, 0.06, px - 0.425, y - 2.15, z + 0.33, mat.screen, 0.03));
+    }
+    y -= 4;
+  }
+  for (let i = 0; i < sockets; i++, y -= 7) {
+    disc(2.9, y - 3.5, mat.anthraciteDeep); disc(2.3, y - 3.5, mat.screen, 0.34);
+    for (const dx of [-0.95, 0.95]) g.add(placed(new THREE.CylinderGeometry(0.25 * M, 0.25 * M, 0.04 * M, 12), mat.anthracite, cx + dx, y - 3.5, z + 0.36).rotateX(Math.PI / 2));
+  }
 }
 
 // Flush power plate with Schuko socket faces and USB-C slots. `face` 'z' mounts it on a wall at z
@@ -1762,8 +1792,10 @@ function renderSpec() {
     rows.push(['Bed drawers', `${bedDrawers.length}, trays ${fmt(fd.height)} tall × ${fmt(fd.depth)} deep, fronts ${fmt(b.frame.height - 2.6)}`]);
   }
   if (V.niches) {
-    const what = { phone: 'phone on a wireless charging pad, plus a USB-C outlet', glasses: 'glasses', bottle: '0.5 l bottle' };
+    const what = { phone: 'phone on a wireless charging pad', glasses: 'glasses', bottle: '0.5 l bottle' };
     rows.push(['Niches', `${c.niches.slots.length} per side, ${fmt(c.niches.w)} wide × ${fmt(c.niches.d)} deep: ${c.niches.slots.map(sl => `${fmt(sl.h)} for ${what[sl.holds] ?? sl.holds}`).join('; ')}`]);
+    const o = c.niches.slots.find(sl => sl.outlets)?.outlets;
+    if (o) rows.push(['Bedside power', `${o.sockets} socket + ${o.usbc} USB-C under the phone niche, each side`]);
   }
   document.getElementById('seg-lids').hidden = !V.tray;
   document.getElementById('pullouts-toggle').hidden = !V.pullouts;
