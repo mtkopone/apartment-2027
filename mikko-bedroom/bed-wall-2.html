@@ -110,7 +110,7 @@
   .chips button { width: 18px; height: 18px; border-radius: 50%; border: 1px solid var(--line); padding: 0; cursor: pointer; }
   .chips button[aria-pressed="true"] { outline: 2px solid var(--accent); outline-offset: 1px; }
   .chips input[type="color"] { width: 22px; height: 22px; border: 0; padding: 0; background: none; cursor: pointer; }
-  .look .btn { justify-self: start; }
+  .look-actions { display: flex; gap: 6px; }
   @media (max-width: 900px) { .look { top: auto; bottom: calc(76px + env(safe-area-inset-bottom, 0px)); max-height: 50vh; } }
 
   .controls {
@@ -196,7 +196,10 @@
   <div class="look-body" id="look-body">
     <div class="moods" id="moods" role="group" aria-label="Moods"></div>
     <div class="surfaces" id="surfaces"></div>
-    <button class="btn" id="btn-copy">Copy link</button>
+    <div class="look-actions">
+      <button class="btn" id="btn-copy">Copy link</button>
+      <button class="btn" id="btn-look-reset" title="Back to the look as drawn">Reset look</button>
+    </div>
   </div>
 </aside>
 
@@ -218,7 +221,10 @@
   <label class="toggle" id="pullouts-toggle" hidden><input type="checkbox" id="opt-pullouts"> Pull-outs out</label>
   <label class="toggle" id="beddrawers-toggle" hidden><input type="checkbox" id="opt-beddrawers"> Bed drawers out</label>
   <label class="toggle">Mirror LED <input type="range" id="led-dim" min="0" max="100" value="70" aria-label="Mirror LED brightness"></label>
-  <label class="toggle"><input type="checkbox" id="opt-pillows" checked> Pillows</label>
+  <div class="seg" role="group" aria-label="Pillows">
+    <button id="pillows-small" aria-pressed="true">Small pillows</button>
+    <button id="pillows-big" aria-pressed="false">Big pillows</button>
+  </div>
   <label class="toggle"><input type="checkbox" id="opt-dims" checked> Dimensions</label>
   <button class="btn" id="btn-reset">Reset view</button>
   </div>
@@ -640,7 +646,7 @@ const boucle = boucleTexture();
 const mat = {
   paint:   new THREE.MeshStandardMaterial({ color: 0x1a0d08, roughness: 0.5 }),    // the box's painted frame: near-black with a hint of brown, as drawn
   groove:  new THREE.MeshStandardMaterial({ color: 0x120a07, roughness: 0.8 }),
-  walnut:  new THREE.MeshStandardMaterial({ map: walnutTexture(), roughness: 0.45 }),
+  walnut:  new THREE.MeshStandardMaterial({ map: walnutTexture([54, 34, 24]), roughness: 0.45 }),   // black walnut by default; the Look panel swaps it
   inlay:   new THREE.MeshStandardMaterial({ color: 0x66544a, roughness: 0.7 }),    // stringing let into the door faces: barely lighter than the walnut, a faint grey-tan line as drawn
   carcass: new THREE.MeshStandardMaterial({ color: 0xe9e2d6, roughness: 0.6 }),   // light interior of the upper cabinet
   trim:    new THREE.MeshStandardMaterial({ color: 0xf7f6f2, roughness: 0.5 }),
@@ -775,7 +781,7 @@ const LED_TONES = { warm: 0xffd9a8, neutral: 0xfff0de, cool: 0xf2f5ff };
 const MOODS = {
   drawn:    { label: 'As drawn',     hb: { color: 'b6ada6', weave: 'boucle', coarse: 50, plush: 15 }, ln: { color: 'f1ece3', finish: 'cotton', coarse: 30 }, pl: { color: 'f8f6f1' },
               bb: { pattern: 'gingham', color: 'f0e7da', color2: '704e4e', size: 4 }, cu: { color: '5c1d22', fabric: 'velvet', folds: 60 }, fp: { color: '1a0d08', sheen: 'matte' },
-              wd: { species: 'darkwalnut', gloss: 45 }, mt: { finish: 'brass' }, wl: { mode: 'mural', color: 'eeece7' }, df: { color: 'd4cfc7' }, le: { tone: 'warm' } },
+              wd: { species: 'blackwalnut', gloss: 45 }, mt: { finish: 'brass' }, wl: { mode: 'mural', color: 'eeece7' }, df: { color: 'd4cfc7' }, le: { tone: 'warm' } },
   nocturne: { label: 'Nocturne',     hb: { color: '3a0f48', weave: 'velvet', coarse: 30, plush: 90 }, ln: { color: '4a1452', finish: 'sateen', coarse: 20 }, pl: { color: '5a1a62' },
               bb: { pattern: 'plain', color: '2a0c2e', color2: '2a0c2e', size: 4 }, cu: { color: '5a0a12', fabric: 'velvet', folds: 70 }, fp: { color: '120a0c', sheen: 'matte' },
               wd: { species: 'blackwalnut', gloss: 55 }, mt: { finish: 'brass' }, wl: { mode: 'mural', color: '2a1b22' }, df: { color: '3a2a30' }, le: { tone: 'warm' } },
@@ -1489,8 +1495,19 @@ function buildBed(cfg, wall) {
     g.add(rbox(Wd - 2, cfg.topperTop - cfg.baseTop, L - 2, x0 + 1, cfg.baseTop, z0 + 1, mat.topper, 2.5));
   }
   g.userData.foot = cfg.frame ? wall.depth + g.userData.frameLength : z0 + L;
-  // Pillows: 60 x 80 ones (Familon Superior size), two per side, the back one leaning on the
-  // headboard and the front one slouched against it, hotel style
+  // Pillows, two styles: big 60 x 80 ones (Familon Superior size), two per side, the back one
+  // leaning on the headboard and the front one slouched against it, hotel style; or the small
+  // flat ones from the first drafts, one per side.
+  if (state.pillows === 'small') {
+    const spw = (Wd - 10 - (cfg.pillows - 1) * 6) / cfg.pillows, sph = 26, spd = 13;
+    for (let i = 0; i < cfg.pillows; i++) {
+      const sp = rbox(spw, sph, spd, 0, 0, 0, mat.pillow, 5);
+      sp.position.set((x0 + 5 + i * (spw + 6) + spw / 2) * M, (cfg.topperTop + sph / 2 - 1) * M, (z0 + spd / 2 + 1) * M);
+      sp.rotation.x = -0.18;
+      g.add(sp);
+    }
+    return g;
+  }
   const pw = Math.min(80, (Wd - 8 - (cfg.pillows - 1) * 4) / cfg.pillows), ph = 60;
   for (let i = 0; i < cfg.pillows; i++) {
     const cx = x0 + Wd / 2 + (i - (cfg.pillows - 1) / 2) * (pw + 4);
@@ -1502,8 +1519,6 @@ function buildBed(cfg, wall) {
     front.position.set(cx * M, (cfg.topperTop + ph / 2 - 12) * M, (z0 + 30) * M);
     front.rotation.x = -0.7;
     front.rotation.z = (i ? -1 : 1) * 0.04;
-    back.userData.pillow = front.userData.pillow = true;
-    back.visible = front.visible = state.pillows;
     g.add(back, front);
   }
   return g;
@@ -1627,6 +1642,16 @@ function buildDimensions() {
   const bx = PL + (W - 2 * PL - EFF.bed.width) / 2;
   g.add(dimension([bx, EFF.bed.topperTop + 2, 130], [bx + EFF.bed.width, EFF.bed.topperTop + 2, 130], `bed ${fmt(EFF.bed.width)}`, [0, 1, 0], true));
   g.add(dimension([d.x0, 120, 2], [d.x1, 120, 2], `opening ${fmt(d.x1 - d.x0)}`, [0, 1, 0], true));
+  // Uprights: outer width of each, and the niche width inside it when the niches are on
+  const uy = c.mirror.top - 8;                                      // just below the niche tags, which sit at the mirror top
+  g.add(dimension([0, uy, D + 2], [PL, uy, D + 2], `upright ${fmt(PL)}`, [0, 1, 0], true));
+  g.add(dimension([W - PL, uy, D + 2], [W, uy, D + 2], `upright ${fmt(PL)}`, [0, 1, 0], true));
+  if (CONFIG.features.niches) {
+    const n = c.niches, cheek = (PL - n.w) / 2, top = n.slots[n.slots.length - 1], ny = c.mirror.top;   // level with the top of the mirror
+    g.add(dimension([cheek, ny, D + 1], [cheek + n.w, ny, D + 1], `niche ${fmt(n.w)}`, [0, 1, 0], true));
+    g.add(dimension([W - PL + cheek, ny, D + 1], [W - PL + cheek + n.w, ny, D + 1], `niche ${fmt(n.w)}`, [0, 1, 0], true));
+    g.add(dimension([PL / 2, top.y, D - n.d], [PL / 2, top.y, D], `${fmt(n.d)} deep`, [1, 0, 0], true));
+  }
   if (CONFIG.features.alcove) {                                   // ledge height: from the floor, and above the mattress
     const under = c.ledgeTop - c.ledge;                                 // clear height to the ledge's underside
     g.add(dimension([PL - 4, 0, D + 4], [PL - 4, under, D + 4], `${fmt(under)} clear under the ledge`, [1, 0, 0]));
@@ -1719,6 +1744,7 @@ function renderSpec() {
   const dw = (c.width - 2 * (c.pilaster + c.walnutFrame)) / c.doors.hinges.length;
   const rows = [
     ['Width', `${fmt(c.width)} cm`], ['Depth', `${fmt(c.depth)} cm`], ['Height', `${fmt(c.height)} cm`],
+    ['Uprights', `2 × ${fmt(c.pilaster)} cm`],
     ['Mirror', `${fmt(c.width - 2 * c.pilaster)} × ${fmt(c.mirror.top - c.ledgeTop)}`],
     ['Doors', `${c.doors.hinges.length} × ${fmt(dw)} × ${fmt(c.doors.top - c.doors.bottom)}`],
     ['Bed', `${fmt(b.width)} × ${fmt(b.length)}`],
@@ -1755,7 +1781,7 @@ function renderSpec() {
 // ---------------------------------------------------------------------------
 // Day / evening blending
 // ---------------------------------------------------------------------------
-const state = { t: 0, target: 0, led: EFF.wall.led.default, ledT: EFF.wall.led.default, ledOn: true, lampOn: true, ceilingOn: true, curtainOpen: false, curtainT: 0, pillows: true };
+const state = { t: 0, target: 0, led: EFF.wall.led.default, ledT: EFF.wall.led.default, ledOn: true, lampOn: true, ceilingOn: true, curtainOpen: false, curtainT: 0, pillows: 'small' };
 const smooth = v => v * v * (3 - 2 * v);
 const bg = new THREE.Color();
 const cA = new THREE.Color(), cB = new THREE.Color();
@@ -1873,7 +1899,7 @@ function writeUrl() {
   const led = state.ledOn ? Math.round(state.led * 100) : 0;
   if (led !== Math.round(EFF.wall.led.default * 100)) { q.set('led', led); t.push(`led=${led}`); }
   if (!document.getElementById('opt-dims').checked) { q.set('dims', 'off'); t.push('nodims'); }
-  if (!state.pillows) { q.set('pillows', 'off'); t.push('nopillows'); }
+  if (state.pillows !== 'small') { q.set('pillows', state.pillows); t.push(`pillows=${state.pillows}`); }
   if (LOOK) {                                     // the mood, then only the surfaces that differ from it
     if (LOOK_MOOD !== 'drawn') { q.set('mood', LOOK_MOOD); t.push(`mood=${LOOK_MOOD}`); }
     const base = moodValues(LOOK_MOOD);
@@ -1913,13 +1939,13 @@ document.getElementById('opt-pullouts').addEventListener('change', e => setPullo
 function setBedDrawers(out) { setAll('drawers', out); }
 document.getElementById('opt-beddrawers').addEventListener('change', e => setBedDrawers(e.target.checked));
 document.getElementById('opt-dims').addEventListener('change', e => { dims.visible = e.target.checked; writeUrl(); });
-function setPillows(on) {
-  state.pillows = on;
-  document.getElementById('opt-pillows').checked = on;
-  bed?.traverse(o => { if (o.userData.pillow) o.visible = on; });
+function setPillows(style) {
+  state.pillows = style;
+  for (const m of ['big', 'small']) document.getElementById(`pillows-${m}`).setAttribute('aria-pressed', String(m === style));
+  if (bed) rebuild();
   writeUrl();
 }
-document.getElementById('opt-pillows').addEventListener('change', e => setPillows(e.target.checked));
+for (const m of ['big', 'small']) document.getElementById(`pillows-${m}`).addEventListener('click', () => setPillows(m));
 // Collapsible spec panel; the choice is remembered in this browser
 const specPanel = document.getElementById('spec'), foldBtn = document.getElementById('btn-fold');
 function setFold(collapsed) {
@@ -1999,6 +2025,7 @@ function setLookFold(collapsed) {
 }
 foldLookBtn.addEventListener('click', () => setLookFold(!lookPanel.classList.contains('collapsed')));
 try { if (localStorage.getItem('bedwall-look-collapsed') === '1') setLookFold(true); } catch {}
+document.getElementById('btn-look-reset').addEventListener('click', () => { openSurface = null; setMood('drawn'); });
 document.getElementById('btn-copy').addEventListener('click', async e => {
   try { await navigator.clipboard.writeText(location.href); e.target.textContent = 'Copied'; }
   catch { prompt('Copy this link', location.href); }
@@ -2081,7 +2108,7 @@ if (query.get('lamp') === 'off') tokens.add('lamp-off');
 if (query.get('ceiling') === 'off') tokens.add('ceiling-off');
 if (query.get('curtain') === 'open') tokens.add('curtain');
 if (query.get('dims') === 'off') tokens.add('nodims');
-if (query.get('pillows') === 'off') tokens.add('nopillows');
+if (query.get('pillows') === 'big') tokens.add('pillows=big');
 for (const k of Object.keys(CONFIG.features)) if (tokens.has(k)) { CONFIG.features[k] = true; for (const o of EXCLUDES[k] ?? []) CONFIG.features[o] = false; }
 { const lm = query.get('lampmodel') ?? [...tokens].find(tk => tk.startsWith('lampmodel='))?.slice(10);
   if (lm && [...document.getElementById('opt-lamp').options].some(o => o.value === lm)) CONFIG.interior.lamp = lm; }
@@ -2118,7 +2145,7 @@ for (const tk of tokens) if (tk.startsWith('led=')) {
   state.ledOn = v > 0; if (v > 0) state.led = v / 100; state.ledT = v / 100; dimmer.value = v;
 }
 if (tokens.has('nodims')) { document.getElementById('opt-dims').checked = false; dims.visible = false; }
-if (tokens.has('nopillows')) setPillows(false);
+if (tokens.has('pillows=big')) setPillows('big');
 urlReady = true;
 writeUrl();
 
