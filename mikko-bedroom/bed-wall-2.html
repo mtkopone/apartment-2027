@@ -76,6 +76,7 @@
   .dims summary::before { content: "\25BE"; font-size: 12px; }
   .dims:not([open]) summary::before { content: "\25B8"; }
   .dims dl { margin-top: 8px; }
+  .interior-fold .features { border-top: 0; border-bottom: 0; padding-top: 6px; padding-bottom: 2px; }
   .interior .row { display: grid; grid-template-columns: 76px 1fr; align-items: center; gap: 8px; font-size: 12.5px; }
   .interior .row > span:first-child { color: var(--muted); }
   .interior .row .seg { justify-self: start; }
@@ -180,8 +181,9 @@
     <label data-note="Probably not structurally sound: the uprights carry the cabinet above"><input type="checkbox" data-feature="pullouts"> Pull-out uprights <span class="warn" aria-label="caution">&#9888;</span></label>
     <label><input type="checkbox" data-feature="frame"> Storage bed frame</label>
   </fieldset>
+  <details class="dims interior-fold" id="interior-fold" open>
+    <summary>Interior</summary>
   <fieldset class="features interior" aria-label="Interior">
-    <legend>Interior</legend>
     <div class="row"><span>Light</span><div class="seg" role="group" aria-label="Lighting">
       <button id="btn-day" aria-pressed="true">Day</button>
       <button id="btn-evening" aria-pressed="false">Evening</button>
@@ -206,9 +208,11 @@
       <button id="pillows-big" aria-pressed="false">Big</button>
     </div></div>
     <label class="row" title="A flashlight that follows the cursor, for looking into dark corners"><span>Flashlight</span><span class="chk"><input type="checkbox" id="opt-torch"> On</span></label>
+    <label class="row" title="The lamp, bottle, glasses, bedding and other loose things"><span>Items</span><span class="chk"><input type="checkbox" id="opt-items" checked> Show</span></label>
     <label class="row"><span>Dimensions</span><span class="chk"><input type="checkbox" id="opt-dims" checked> Show</span></label>
     <div class="row"><span>View</span><button class="btn" id="btn-reset">Reset view</button></div>
   </fieldset>
+  </details>
   <details class="dims" id="dims-fold" open>
     <summary>Dimensions</summary>
     <dl id="spec-list"></dl>
@@ -303,7 +307,8 @@ const CONFIG = {
     topRail: 10,
     skirting: 7,        // 70 mm skirting runs round the box
     ledgeTop: 113,      // top of the lower panel = the shelf at the bottom of the mirror recess
-    alcove: { ledgeTop: 148, mirrorTop: 184, doorsBottom: 187, knobY: 196, shelf: 215, headboardTop: 113 },   // with the bed in the alcove the ledge's underside is at 145, clear of someone sitting up with a laptop; the headboard stops 30 cm short of it
+    alcove: { ledgeTop: 148, mirrorTop: 184, doorsBottom: 187, knobY: 196, shelf: 215, headboardTop: 113 },
+    alcovePower: { y: 180, z: 12, sockets: 2, usbc: 1 },   // in the alcove: a plate on the left upright's inner face above the ledge, in the mirror recess; y is its top edge, z its centre along the upright   // with the bed in the alcove the ledge's underside is at 145, clear of someone sitting up with a laptop; the headboard stops 30 cm short of it
     ledge: 3,
     mirror: { top: 160 },                 // optiwhite mirror from the ledge up to the walnut rail
     led: { lip: 2, default: 0.7 },        // dimmable LED strip hidden behind a lip along the recess's top front edge
@@ -680,8 +685,8 @@ const mat = {
   glow:    new THREE.MeshStandardMaterial({ color: 0xfff4e0, emissive: 0xffc58a, emissiveIntensity: 0 }),   // ceiling light
   bulb:    new THREE.MeshStandardMaterial({ color: 0xfff4e0, emissive: 0xffc58a, emissiveIntensity: 0 }),   // table lamp
   rondo:   new THREE.MeshStandardMaterial({ color: 0xf4f4f2, roughness: 0.35 }),
-  anthracite: new THREE.MeshStandardMaterial({ color: 0x3b3b3c, roughness: 0.6 }),       // Schneider Exxact anthracite, matte
-  anthraciteDeep: new THREE.MeshStandardMaterial({ color: 0x2a2a2b, roughness: 0.55 }),                            // Rondo Air's white plastic
+  anthracite: new THREE.MeshStandardMaterial({ color: 0x3b3b3c, roughness: 0.88 }),      // Schneider Exxact anthracite: matte, so it stays dark at grazing angles too
+  anthraciteDeep: new THREE.MeshStandardMaterial({ color: 0x2a2a2b, roughness: 0.8 }),                            // Rondo Air's white plastic
   rondoFace: new THREE.MeshStandardMaterial({ color: 0xffffff, emissive: 0xf4f6ff, emissiveIntensity: 0 }),   // its diffuser
 };
 // Load the real mural from the Rebel Walls CDN and put it on the papered walls once it arrives.
@@ -894,6 +899,10 @@ function parquetFor(wCm, dCm) {
   tex.needsUpdate = true;
   return new THREE.MeshStandardMaterial({ map: tex, roughness: 0.42 });
 }
+
+// Loose items (lamp, bottle, books, things in the cupboards) go in groups flagged like this, so the
+// Items switch in the panel can hide them all at once. Built-in things stay.
+function itemsGroup(parent) { const ig = new THREE.Group(); ig.userData.items = true; parent.add(ig); return ig; }
 
 // Geometry helpers: boxes take a size and their min corner, all in cm.
 function box(w, h, d, x, y, z, material, { cast = true, receive = true } = {}) {
@@ -1119,6 +1128,7 @@ function mirrorPlane(w, h) {
 // what the electrics do. Niche and tray notes take their numbers from CONFIG.
 const TIPS = {
   phone: (sl, n) => `<b>Phone niche</b>, ${fmt(sl.h)} cm tall, ${fmt(n.w)} wide, ${fmt(n.d)} deep. The phone lies flat on a wireless charging pad let into the floor, wired from inside the upright, so there is normally no cable in sight. The socket plate just below the niche covers everything else. Tall enough to get fingers under the phone.`,
+  alcovePower: o => `<b>Power in the alcove</b>: with the bed in the alcove nothing can be fed through the ledge, so the electrics are on the inner face of the left upright just above it, inside the mirror recess: ${o.usbc} USB-C port${o.usbc > 1 ? 's' : ''} on top and ${o.sockets} Schuko sockets below, Schneider Exxact in anthracite, between about ${fmt(o.y - 20)} and ${fmt(o.y)} cm. The lamp plugs into the lower socket, so its cable barely leaves the ledge. Wired inside the upright from the box's feed.`,
   nicheOutlets: o => `<b>Socket plate</b> under the phone niche, Schneider Exxact in anthracite: ${o.usbc} USB-C port${o.usbc > 1 ? 's' : ''} on top and ${o.sockets} Schuko socket${o.sockets > 1 ? 's' : ''} below, flush in the upright's face at about 50 cm, reachable from the pillow. USB-C with Power Delivery charges a laptop, tablet or earbuds; the Schuko takes a lamp or anything else. Both uprights have one.`,
   glasses: (sl, n) => `<b>Glasses niche</b>, ${fmt(sl.h)} cm tall. Room for folded reading glasses, a watch or a paperback on edge. No electrics here; it is the one that stays empty.`,
   bottle: (sl, n) => `<b>Bottle niche</b>, ${fmt(sl.h)} cm tall. A Finnish 0.5 l plastic bottle is about 23 cm, so it lifts in and out upright without tilting, with ${fmt(n.w)} cm of width leaving a finger's room either side.`,
@@ -1187,7 +1197,7 @@ function buildWall(cfg) {
   for (let i = 0; i < n; i++) {
     const sx0 = ix0 + i * dw + (i ? 0.9 : 0), sx1 = ix0 + (i + 1) * dw - (i < n - 1 ? 0.9 : 0);
     g.add(box(sx1 - sx0, 1.8, cd - 3, sx0, cfg.shelf, 2, mat.carcass));
-    addCabinetContents(g, sx0, sx1, cy0 + WF, cfg.shelf, cy1 - WF, 2, cd - 1, i);
+    addCabinetContents(itemsGroup(g), sx0, sx1, cy0 + WF, cfg.shelf, cy1 - WF, 2, cd - 1, i);
   }
   // Walnut face frame round the doors (flush with the door fronts)
   const fz = D - cfg.doors.thickness;
@@ -1237,16 +1247,32 @@ function buildWall(cfg) {
     g.userData.lamp = { x: lp.x, y: ly + 21, z: lp.z };
   }
   lampGroup.userData.click = () => setLamp(!state.lampOn);
+  lampGroup.userData.items = true;
   g.add(lampGroup);
-  const gx = lp.x + 11, gz = lp.z - 4;
-  g.add(placed(new THREE.CylinderGeometry(2.4 * M, 2.4 * M, 0.3 * M, 28), mat.groove, gx, ly + 0.1, gz));
-  const grommet = placed(new THREE.TorusGeometry(2.4 * M, 0.4 * M, 8, 32), mat.brass, gx, ly + 0.2, gz);
-  grommet.rotation.x = Math.PI / 2;
-  g.add(grommet);
-  const curve = new THREE.CatmullRomCurve3([[lp.x + 7, ly + 0.6, lp.z - 1], [lp.x + 9.5, ly + 0.5, gz + 0.5], [gx, ly + 0.3, gz], [gx, ly - 2, gz]]
-    .map(p => new THREE.Vector3(...p).multiplyScalar(M)));
-  const cable = new THREE.Mesh(new THREE.TubeGeometry(curve, 40, 0.3 * M, 8), mat.black);
-  g.add(cable);
+  const tube = pts => new THREE.Mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts.map(q => new THREE.Vector3(...q).multiplyScalar(M))), 60, 0.3 * M, 8), mat.black);
+  if (V.alcove) {
+    // With the bed in the alcove the ledge is a shelf over open wall, so nothing can be fed through it.
+    // The electrics sit on the inner face of the left upright instead: a plate with a USB-C port and two
+    // sockets, facing the bed at hand height, and the lamp's cable runs along the ledge and down to it.
+    const ap = cfg.alcovePower, py = ap.y, pz = ap.z;
+    const pg = new THREE.Group();
+    addFacePlate(pg, 0, 0, 0, ap);                                        // built facing +z at the origin
+    pg.rotation.y = Math.PI / 2;                                          // now facing +x, into the alcove
+    pg.position.set((PL + 0.3) * M, py * M, pz * M);
+    pg.userData.tip = TIPS.alcovePower(ap);
+    g.add(pg);
+    g.userData.alcovePlate = { x: PL, yTop: py, z: pz };
+    const socketY = py - 1 - 4 - 7 - 3.5;                                 // the lower socket's centre
+    g.add(tube([[lp.x + 7, ly + 0.6, lp.z - 1], [PL + 8, ly + 0.5, lp.z - 1], [PL + 3, ly + 0.8, pz], [PL + 1.4, socketY - 4, pz], [PL + 1.4, socketY, pz]]));
+    g.add(placed(new THREE.CylinderGeometry(1.7 * M, 1.7 * M, 1.6 * M, 20), mat.black, PL + 1.3, socketY, pz).rotateZ(Math.PI / 2));   // the lamp's plug
+  } else {
+    const gx = lp.x + 11, gz = lp.z - 4;
+    g.add(placed(new THREE.CylinderGeometry(2.4 * M, 2.4 * M, 0.3 * M, 28), mat.groove, gx, ly + 0.1, gz));
+    const grommet = placed(new THREE.TorusGeometry(2.4 * M, 0.4 * M, 8, 32), mat.brass, gx, ly + 0.2, gz);
+    grommet.rotation.x = Math.PI / 2;
+    g.add(grommet);
+    g.add(tube([[lp.x + 7, ly + 0.6, lp.z - 1], [lp.x + 9.5, ly + 0.5, gz + 0.5], [gx, ly + 0.3, gz], [gx, ly - 2, gz]]));
+  }
 
   return g;
 }
@@ -1293,13 +1319,13 @@ function addUpright(g, cfg, ux, V) {
 
 // What the niches hold: a phone on a charging pad with a USB-C outlet behind it, a pair of reading
 // glasses, or a 0.5 l soda bottle. Interior is x..x+w, y..y+h, z..z+d (front at z+d).
-function addNicheContents(g, x, y, z, w, h, d, holds, left) {
-  const cx = x + w / 2, front = z + d;
+function addNicheContents(fixed, x, y, z, w, h, d, holds, left) {
+  const cx = x + w / 2, front = z + d, g = itemsGroup(fixed);
   if (holds === 'phone') {
     // Wireless charging pad let into the niche floor, the phone lying on it; no cable or socket to see
     const pad = placed(new THREE.CylinderGeometry(4.2 * M, 4.2 * M, 0.5 * M, 32), mat.black, cx, y + 0.25, front - 9.5);   // pad, 2 mm proud
     pad.userData.tip = TIPS.pad();
-    g.add(pad);
+    fixed.add(pad);
     g.add(placed(new THREE.TorusGeometry(3.6 * M, 0.12 * M, 6, 32), clothMat(0x7c7c80), cx, y + 0.52, front - 9.5).rotateX(Math.PI / 2));   // ring marking the coil
     g.add(rbox(7, 0.8, 14.5, cx - 3.5, y + 0.5, front - 16.5, mat.screen, 0.5));                                           // phone, face up
   } else if (holds === 'glasses') {
@@ -1344,16 +1370,16 @@ function addPullout(g, cfg, ux, y0, y1) {
     for (const x of [ux + 1, ux + PL - 1.6]) u.add(box(0.6, 4, cd, x, y0 + sy + 1.5, cz, mat.carcass));   // lips
   }
   // Contents: bottle and glasses case at the bottom, books, then phone and candle, earbuds on top
-  const cx = ux + PL / 2, zc = cz + cd / 2, base = y0 + 2;
-  u.add(placed(new THREE.CylinderGeometry(3.2 * M, 3.2 * M, 22 * M, 20), clothMat(0x8fb0c9), cx, base + 11, zc - 4));
-  u.add(rbox(6, 3.5, 15, cx - 3, base, zc + 1, clothMat(0x3b3b40), 1));
+  const cx = ux + PL / 2, zc = cz + cd / 2, base = y0 + 2, it = itemsGroup(u);
+  it.add(placed(new THREE.CylinderGeometry(3.2 * M, 3.2 * M, 22 * M, 20), clothMat(0x8fb0c9), cx, base + 11, zc - 4));
+  it.add(rbox(6, 3.5, 15, cx - 3, base, zc + 1, clothMat(0x3b3b40), 1));
   const s1 = y0 + pu.shelves[0] + 1.5;
-  [0x7a3b2e, 0x2f4a5c, 0x3c4a3a].forEach((c, i) => u.add(box(9.5, 2.2, 15 - i, cx - 4.75, s1 + i * 2.2, zc - 7, clothMat(c))));
+  [0x7a3b2e, 0x2f4a5c, 0x3c4a3a].forEach((c, i) => it.add(box(9.5, 2.2, 15 - i, cx - 4.75, s1 + i * 2.2, zc - 7, clothMat(c))));
   const s2 = y0 + pu.shelves[1] + 1.5;
-  u.add(rbox(7, 0.8, 14.5, cx - 3.5, s2, zc - 7, mat.screen, 0.5));
-  u.add(placed(new THREE.CylinderGeometry(2.4 * M, 2.4 * M, 7 * M, 20), mat.wax, cx, s2 + 3.5, zc + 5));
+  it.add(rbox(7, 0.8, 14.5, cx - 3.5, s2, zc - 7, mat.screen, 0.5));
+  it.add(placed(new THREE.CylinderGeometry(2.4 * M, 2.4 * M, 7 * M, 20), mat.wax, cx, s2 + 3.5, zc + 5));
   const s3 = y0 + pu.shelves[2] + 1.5;
-  u.add(rbox(5.5, 2.5, 5.5, cx - 2.75, s3, zc - 2, clothMat(0xf2f0ea), 1.5));
+  it.add(rbox(5.5, 2.5, 5.5, cx - 2.75, s3, zc - 2, clothMat(0xf2f0ea), 1.5));
   u.userData = { pullout: true, travel: pu.travel, open: 0, target: 0, click: () => togglePiece(u), tip: TIPS.pullout() };
   pullouts.push(u);
   g.add(u);
@@ -1390,6 +1416,7 @@ function addWell(g, cfg) {
     g.add(pivot);
   }
   const tray = new THREE.Group();
+  tray.userData.items = true;
   tray.userData.tip = TIPS.tray(tw - 1, wd, D - t - 1);
   addWellContents(tray, tx0 + 1, wy, 1, tw - 1, wd, D - t - 1);
   g.add(tray);
@@ -1631,13 +1658,13 @@ function addBedFrame(g, cfg, x0, z0, frameStart, hbx0, alcove) {
     d.add(box(1.2, dh - 3, bd, bx + bw - 1.2, lo + 0.5, bz, mat.carcass));
     d.add(box(bw, dh - 3, 1.2, bx, lo + 0.5, left ? bz + bd - 1.2 : bz, mat.carcass));
     d.add(box(bw, dh - 3, 1.2, bx, lo + 0.5, left ? bz : bz + bd - 1.2, mat.carcass));
-    const n = Math.floor((left ? bd : bw) / 30);                                      // stacks of folded clothes
+    const n = Math.floor((left ? bd : bw) / 30), stacks = itemsGroup(d);              // stacks of folded clothes
     for (let i = 0; i < n; i++) {
       let yy = lo + 1.7;
       const cx = (left ? bx + 16 : bx + 15 + i * ((bw - 4) / n)), cz = (left ? bz + 15 + i * ((bd - 4) / n) : bz + bd - 16);
       for (let k = 0; k < 3; k++) {
         const sw = 24 + rand() * 4, sd = 26 + rand() * 4, sh = 3 + rand();
-        g; d.add(rbox(sw, sh, sd, cx - sw / 2, yy, cz - sd / 2, clothMat([0x6b5a3c, 0x7d8590, 0xb7bcc2, 0x8c6f63, 0xa7a29a, 0x3f4a5c][Math.floor(rand() * 6)]), 1));
+        stacks.add(rbox(sw, sh, sd, cx - sw / 2, yy, cz - sd / 2, clothMat([0x6b5a3c, 0x7d8590, 0xb7bcc2, 0x8c6f63, 0xa7a29a, 0x3f4a5c][Math.floor(rand() * 6)]), 1));
         yy += sh;
       }
     }
@@ -1784,6 +1811,7 @@ function rebuild() {
   if (LOOK) applyLook(['le']);
   scene.add(room, wall, bed, doors, dims, ledLight, ...smallLights);
   if (keep) for (const k of Object.keys(keep)) pieces(k).forEach((p, i) => { p.userData.target = p.userData.open = keep[k][i] ?? 0; });
+  applyItems();
   syncPieceControls();
   renderSpec();
   applyLighting();
@@ -1802,7 +1830,8 @@ function renderSpec() {
     ['Door opening', `${fmt(d.x1 - d.x0)} cm`],
   ];
   const V = CONFIG.features, hint = document.querySelector('.spec .hint');
-  rows.push(['Lamp', CONFIG.interior.lamp === 'rondo' ? 'Innolux Rondo Air, 24 W, 4000 K, 2040 lm' : 'brass dome, through a grommet']);
+  rows.push(['Lamp', (CONFIG.interior.lamp === 'rondo' ? 'Innolux Rondo Air, 24 W, 4000 K, 2040 lm' : 'brass dome') + (CONFIG.features.alcove ? ', plugged into the upright' : ', through a grommet')]);
+  if (V.alcove) rows.push(['Alcove power', `${c.alcovePower.usbc} USB-C + ${c.alcovePower.sockets} sockets on the left upright, above the ledge`]);
   if (V.alcove) rows.push(['Under ledge', `${fmt(c.ledgeTop - c.ledge)} cm clear, ${fmt(c.ledgeTop - c.ledge - b.topperTop)} above mattress`]);
   if (V.tray) rows.push(['Tray', `${fmt(wall.userData.trayWidth)} × ${fmt(c.lids.depth)} × ${fmt(c.depth - 3)} under the lids; 2 sockets + 2 USB-C at the lamp end`]);
   if (V.pullouts) rows.push(['Pull-outs', `2 × ${fmt(c.pilaster)} × ${fmt(c.depth)}, ${c.pullouts.shelves.length + 1} shelves. Probably not structurally sound, see the tooltip`]);
@@ -1833,7 +1862,7 @@ function renderSpec() {
 // ---------------------------------------------------------------------------
 // Day / evening blending
 // ---------------------------------------------------------------------------
-const state = { t: 0, target: 0, led: EFF.wall.led.default, ledT: EFF.wall.led.default, ledOn: true, lampOn: true, ceilingOn: true, curtainOpen: false, curtainT: 0, pillows: 'small', torch: false };
+const state = { t: 0, target: 0, led: EFF.wall.led.default, ledT: EFF.wall.led.default, ledOn: true, lampOn: true, ceilingOn: true, curtainOpen: false, curtainT: 0, pillows: 'small', torch: false, items: true };
 const smooth = v => v * v * (3 - 2 * v);
 const bg = new THREE.Color();
 const cA = new THREE.Color(), cB = new THREE.Color();
@@ -1966,6 +1995,7 @@ function writeUrl() {
   if (led !== Math.round(EFF.wall.led.default * 100)) { q.set('led', led); t.push(`led=${led}`); }
   if (!document.getElementById('opt-dims').checked) { q.set('dims', 'off'); t.push('nodims'); }
   if (state.pillows !== 'small') { q.set('pillows', state.pillows); t.push(`pillows=${state.pillows}`); }
+  if (!state.items) { q.set('items', 'off'); t.push('noitems'); }
   if (LOOK) {                                     // the mood, then only the surfaces that differ from it
     if (LOOK_MOOD !== 'drawn') { q.set('mood', LOOK_MOOD); t.push(`mood=${LOOK_MOOD}`); }
     const base = moodValues(LOOK_MOOD);
@@ -2005,6 +2035,13 @@ document.getElementById('opt-pullouts').addEventListener('change', e => setPullo
 function setBedDrawers(out) { setAll('drawers', out); }
 document.getElementById('opt-beddrawers').addEventListener('change', e => setBedDrawers(e.target.checked));
 document.getElementById('opt-dims').addEventListener('change', e => { dims.visible = e.target.checked; writeUrl(); });
+function applyItems() { for (const root of [wall, bed]) root?.traverse(o => { if (o.userData.items) o.visible = state.items; }); }
+function setItems(on) {
+  state.items = on;
+  document.getElementById('opt-items').checked = on;
+  applyItems(); writeUrl();
+}
+document.getElementById('opt-items').addEventListener('change', e => setItems(e.target.checked));
 function setPillows(style) {
   state.pillows = style;
   for (const m of ['big', 'small']) document.getElementById(`pillows-${m}`).setAttribute('aria-pressed', String(m === style));
@@ -2022,9 +2059,11 @@ function setFold(collapsed) {
   try { localStorage.setItem('bedwall-spec-collapsed', collapsed ? '1' : '0'); } catch {}
 }
 foldBtn.addEventListener('click', () => setFold(!specPanel.classList.contains('collapsed')));
-const dimsFold = document.getElementById('dims-fold');
-dimsFold.addEventListener('toggle', () => { try { localStorage.setItem('bedwall-dims-folded', dimsFold.open ? '0' : '1'); } catch {} });
-try { if (localStorage.getItem('bedwall-dims-folded') === '1') dimsFold.open = false; } catch {}
+for (const [id, key] of [['dims-fold', 'bedwall-dims-folded'], ['interior-fold', 'bedwall-interior-folded']]) {
+  const el = document.getElementById(id);
+  el.addEventListener('toggle', () => { try { localStorage.setItem(key, el.open ? '0' : '1'); } catch {} });
+  try { if (localStorage.getItem(key) === '1') el.open = false; } catch {}
+}
 try { if (localStorage.getItem('bedwall-spec-collapsed') === '1') setFold(true); } catch {}
 // Look panel: moods as chips, then one row per surface that opens to its controls
 const lookPanel = document.getElementById('look'), foldLookBtn = document.getElementById('btn-fold-look');
@@ -2182,6 +2221,7 @@ if (query.get('ceiling') === 'off') tokens.add('ceiling-off');
 if (query.get('curtain') === 'open') tokens.add('curtain');
 if (query.get('dims') === 'off') tokens.add('nodims');
 if (query.get('pillows') === 'big') tokens.add('pillows=big');
+if (query.get('items') === 'off') tokens.add('noitems');
 for (const k of Object.keys(CONFIG.features)) if (tokens.has(k)) { CONFIG.features[k] = true; for (const o of EXCLUDES[k] ?? []) CONFIG.features[o] = false; }
 { const lm = query.get('lampmodel') ?? [...tokens].find(tk => tk.startsWith('lampmodel='))?.slice(10);
   if (lm && [...document.getElementById('opt-lamp').options].some(o => o.value === lm)) CONFIG.interior.lamp = lm; }
@@ -2219,6 +2259,7 @@ for (const tk of tokens) if (tk.startsWith('led=')) {
 }
 if (tokens.has('nodims')) { document.getElementById('opt-dims').checked = false; dims.visible = false; }
 if (tokens.has('pillows=big')) setPillows('big');
+if (tokens.has('noitems')) setItems(false);
 urlReady = true;
 writeUrl();
 
@@ -2243,5 +2284,5 @@ renderer.setAnimationLoop(() => {
 });
 
 // Handy for poking at numbers from the console: edit bedwall.CONFIG, then bedwall.rebuild()
-window.bedwall = { CONFIG, rebuild, camera, controls };
+window.bedwall = { CONFIG, rebuild, camera, controls, scene, LIGHTING, mat };
 </script>
