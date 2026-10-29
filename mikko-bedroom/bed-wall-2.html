@@ -139,6 +139,15 @@
     background: var(--tag-bg); color: var(--tag-fg); padding: 3px 7px; border-radius: 5px; white-space: nowrap;
   }
   .dim.soft { background: var(--tag-soft-bg); }
+  .busy {
+    position: fixed; z-index: 6; top: calc(16px + env(safe-area-inset-top, 0px)); left: 50%; transform: translateX(-50%);
+    display: flex; align-items: center; gap: 8px; padding: 6px 12px; font-size: 12.5px;
+    background: var(--panel); color: var(--fg); border: 1px solid var(--line); border-radius: 999px;
+    backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); pointer-events: none;
+  }
+  .spin { width: 12px; height: 12px; border: 2px solid var(--line); border-top-color: var(--accent); border-radius: 50%; animation: spin 0.8s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  body.is-busy, body.is-busy #stage canvas { cursor: progress !important; }
   .tip {
     position: fixed; z-index: 5; max-width: 280px; padding: 8px 10px; pointer-events: none;
     background: var(--panel); color: var(--fg); border: 1px solid var(--line); border-radius: 8px;
@@ -155,6 +164,7 @@
 
 <div id="stage"><div id="labels"></div></div>
 <div id="tip" class="tip" role="tooltip" hidden></div>
+<div id="busy" class="busy" role="status" aria-live="polite" hidden><span class="spin"></span>Updating lighting…</div>
 
 <header class="spec" id="spec">
   <div class="spec-head">
@@ -225,6 +235,7 @@
     <button id="pillows-small" aria-pressed="true">Small pillows</button>
     <button id="pillows-big" aria-pressed="false">Big pillows</button>
   </div>
+  <label class="toggle" title="A flashlight that follows the cursor, for looking into dark corners"><input type="checkbox" id="opt-torch"> Flashlight</label>
   <label class="toggle"><input type="checkbox" id="opt-dims" checked> Dimensions</label>
   <button class="btn" id="btn-reset">Reset view</button>
   </div>
@@ -300,7 +311,7 @@ const CONFIG = {
     topRail: 10,
     skirting: 7,        // 70 mm skirting runs round the box
     ledgeTop: 113,      // top of the lower panel = the shelf at the bottom of the mirror recess
-    alcove: { ledgeTop: 148, mirrorTop: 184, doorsBottom: 187, knobY: 196, shelf: 215, headboardTop: 143 },   // with the bed in the alcove the ledge's underside is at 145, clear of someone sitting up with a laptop
+    alcove: { ledgeTop: 148, mirrorTop: 184, doorsBottom: 187, knobY: 196, shelf: 215, headboardTop: 113 },   // with the bed in the alcove the ledge's underside is at 145, clear of someone sitting up with a laptop; the headboard stops 30 cm short of it
     ledge: 3,
     mirror: { top: 160 },                 // optiwhite mirror from the ledge up to the walnut rail
     led: { lip: 2, default: 0.7 },        // dimmable LED strip hidden behind a lip along the recess's top front edge
@@ -401,9 +412,9 @@ function canvasTexture(canvas) {
 }
 
 function parquetTexture() {
-  // Mosaic (basket-weave) oak parquet: square blocks of parallel strips,
-  // alternating direction like a chequerboard.
-  const strip = 6, perBlock = 4, blocks = 8, pxPerCm = 5;          // 24 cm blocks, 192 cm tile
+  // Mosaic (basket-weave) oak parquet: square blocks of parallel strips, alternating direction like
+  // a chequerboard. Freshly sanded and waxed, so the strips are close in tone with no grey ones.
+  const strip = 16 / 6, perBlock = 6, blocks = 12, pxPerCm = 6;    // 16 cm blocks of six strips, 192 cm tile
   const blockCm = strip * perBlock, S = blocks * blockCm * pxPerCm;
   const canvas = document.createElement('canvas');
   canvas.width = canvas.height = S;
@@ -411,8 +422,8 @@ function parquetTexture() {
   const img = ctx.createImageData(S, S);
   const rand = mulberry32(7);
   const tones = Array.from({ length: blocks * blocks * perBlock }, () => {
-    const grey = rand() < 0.25 ? rand() * 0.5 : 0;
-    return { l: 0.86 + rand() * 0.2, grey, phase: rand() * 100, freq: 4 + rand() * 3, knot: rand() };
+    const grey = 0;                                                     // sanded: no weathered strips
+    return { l: 0.93 + rand() * 0.09, grey, phase: rand() * 100, freq: 4 + rand() * 3, knot: rand() };   // tight tone spread
   });
   for (let y = 0; y < S; y++) {
     for (let x = 0; x < S; x++) {
@@ -655,7 +666,7 @@ const mat = {
   passage: new THREE.MeshStandardMaterial({ color: 0xd9d5cd, roughness: 0.95 }),
   ceiling: new THREE.MeshStandardMaterial({ color: 0xf5f4f1, roughness: 1 }),
   floral:  new THREE.MeshStandardMaterial({ map: floralTexture(), roughness: 0.9 }),   // swapped for the real mural once loaded
-  floor:   new THREE.MeshStandardMaterial({ map: parquetTexture(), roughness: 0.55 }),
+  floor:   new THREE.MeshStandardMaterial({ map: parquetTexture(), roughness: 0.42 }),   // waxed: a soft satin
   // Textiles are physical materials so they can take a sheen (velvet, sateen); the Look panel sets them
   fabric:  new THREE.MeshPhysicalMaterial({ color: 0xb6ada6, map: boucle, bumpMap: boucle, bumpScale: 0.004, roughness: 1 }),   // headboard
   topper:  new THREE.MeshPhysicalMaterial({ color: 0xf1ece3, roughness: 1 }),
@@ -860,10 +871,12 @@ function applyLook(keys = Object.keys(LOOK_SCHEMA)) {
   }
 }
 function setMood(name) {
+  markBusy();
   LOOK_MOOD = name; LOOK = moodValues(name);
   applyLook(); rebuild(); renderLookPanel(); writeUrl();
 }
 function setLookField(surface, field, value) {
+  markBusy();
   LOOK[surface][field] = value;
   applyLook([surface]);
   if (surface === 'cu' && field === 'folds') rebuild();          // the curtain's folds are geometry
@@ -880,6 +893,14 @@ function decodeSurface(k, str) {
     else { const n = Number(v); if (Number.isFinite(n)) out[f] = Math.max(opts.min ?? 0, Math.min(opts.max ?? 100, n)); }
   });
   return out;
+}
+
+// The parquet material for a floor of a given size: same texture, its own repeat so the blocks stay 24 cm
+function parquetFor(wCm, dCm) {
+  const tex = mat.floor.map.clone();
+  tex.repeat.set(wCm / tex.userData.tileCm, dCm / tex.userData.tileCm);
+  tex.needsUpdate = true;
+  return new THREE.MeshStandardMaterial({ map: tex, roughness: 0.42 });
 }
 
 // Geometry helpers: boxes take a size and their min corner, all in cm.
@@ -1007,7 +1028,7 @@ function buildRoom() {
   g.add(box(10, 1, op.z1 - op.z0, wx, op.height, op.z0, mat.wall, { cast: false }));
   // A little of the room beyond, so the opening reads as one
   const bw = 220, bd = 300, bz0 = (op.z0 + op.z1) / 2 - bd / 2;
-  const bf = plane(bw, bd, mat.floor); bf.rotation.x = -Math.PI / 2; bf.position.set((wx - bw / 2) * M, 0, (bz0 + bd / 2) * M);
+  const bf = plane(bw, bd, parquetFor(bw, bd)); bf.rotation.x = -Math.PI / 2; bf.position.set((wx - bw / 2) * M, 0, (bz0 + bd / 2) * M);
   const bc = plane(bw, bd, mat.ceiling); bc.rotation.x = Math.PI / 2; bc.position.set((wx - bw / 2) * M, C * M, (bz0 + bd / 2) * M);
   g.add(bf, bc);
   g.add(box(1, C, bd, wx - bw - 1, 0, bz0, mat.wall, { cast: false }));     // no shadows: the sun is a stand-in for daylight
@@ -1018,7 +1039,7 @@ function buildRoom() {
   // The wall is 10 cm thick; a short passage lies behind the opening.
   g.add(box(door.x0 - door.jamb - ROOM.xMin, C, 10, ROOM.xMin, 0, -10, mat.wall));
   const P = ROOM.passage;
-  const pf = plane(-ROOM.xMin, P, mat.passage); pf.rotation.x = -Math.PI / 2; pf.position.set(ROOM.xMin / 2 * M, 0, -P / 2 * M);
+  const pf = plane(-ROOM.xMin, P, parquetFor(-ROOM.xMin, P)); pf.rotation.x = -Math.PI / 2; pf.position.set(ROOM.xMin / 2 * M, 0, -P / 2 * M);   // the same parquet runs on through the doorway
   const pc = plane(-ROOM.xMin, P, mat.ceiling); pc.rotation.x = Math.PI / 2; pc.position.set(ROOM.xMin / 2 * M, C * M, -P / 2 * M);
   g.add(pf, pc);
   g.add(box(-ROOM.xMin, C, 1, ROOM.xMin, 0, -P - 1, mat.passage));
@@ -1059,9 +1080,9 @@ function buildCurtain(x0, x1, rodY, z) {
   const g = new THREE.Group();
   const w = x1 - x0, bottom = 1.5, h = rodY - 2 - bottom, waves = 7, amp = 0.8 + 4 * (LOOK?.cu.folds ?? 60) / 100;   // fold depth from the Look panel
   const rod = placed(new THREE.CylinderGeometry(0.8 * M, 0.8 * M, (w + 2) * M, 16), mat.brass, (x0 + x1) / 2, rodY, z);
-  rod.rotation.z = Math.PI / 2;
+  rod.rotation.z = Math.PI / 2; rod.castShadow = false;
   g.add(rod);
-  for (const x of [x0, x1 - 1]) g.add(box(1, 2, 3, x, rodY - 1, z - 1.5, mat.brass));
+  for (const x of [x0, x1 - 1]) g.add(box(1, 2, 3, x, rodY - 1, z - 1.5, mat.brass, { cast: false }));
   const geo = new THREE.PlaneGeometry(w * M, h * M, 140, 1);
   const pos = geo.attributes.position;
   const rand = mulberry32(9), jitter = Array.from({ length: waves * 2 + 2 }, () => (rand() - 0.5) * 0.35);
@@ -1082,7 +1103,7 @@ function buildCurtain(x0, x1, rodY, z) {
   for (let k = 0; k <= waves * 2; k++) {                       // eyelet rings on every crest and trough
     const x = (k / (waves * 2)) * w;
     const ring = placed(new THREE.TorusGeometry(2 * M, 0.3 * M, 8, 24), mat.brass, Math.min(Math.max(x, 2.5), w - 2.5), rodY, z);
-    ring.rotation.y = Math.PI / 2;
+    ring.rotation.y = Math.PI / 2; ring.castShadow = false;
     slide.add(ring);
   }
   slide.userData.click = () => setCurtain(!state.curtainOpen);
@@ -1112,7 +1133,7 @@ const TIPS = {
   tray: (iw, depth, d) => `<b>Tray</b> behind the headboard, ${fmt(iw)} × ${fmt(depth)} × ${fmt(d)} cm, under the two lids only. Shallow on purpose: ${fmt(depth)} cm means everything is reachable from above while kneeling on the bed, and nothing gets buried. The part under the lamp is a closed compartment for the electrics.`,
   trayPower: () => `<b>Power in the tray</b>: two Schuko sockets and two USB-C ports on a plate at the lamp end, facing into the tray. The compartment behind it, under the lamp's fixed ledge, holds the wiring and shares the lamp's feed. USB-C with Power Delivery charges a phone or tablet without a charger brick. Worth confirming with the electrician how they want sockets inside furniture done.`,
   trayLed: () => `<b>Tray LED</b>: neutral-white strip along the back under the hinge rail, on a lid sensor. It comes on as a lid lifts and goes off when both are down, so nothing to switch.`,
-  lid: () => `<b>Lift-up lid</b>: a 3 cm panel on a hinge rail just in front of the mirror, opening to vertical so it rests against the glass. Finger groove along the front edge; no handle to catch pillows on.`,
+  lid: () => `<b>Lift-up lid</b>: a 3 cm panel on a hinge rail just in front of the mirror, opening to about 80° on a lid stay that holds it there, a couple of centimetres clear of the glass. Finger groove along the front edge; no handle to catch pillows on.`,
   lamp: () => `<b>Table lamp</b> on the ledge, its cable dropping through a brass grommet to a socket inside the box, as the drawing notes ("läpivienti"). Click to switch it.`,
   mirrorLed: () => `<b>Mirror LED</b>: a dimmable strip hidden behind a 2 cm lip on the front edge of the recess, lighting the mirror and the ledge. Drag the slider to dim, click the strip to switch.`,
   rondo: () => `<b>Innolux Rondo Air</b> bright light on the ledge: a flat white disc, 300 × 150 mm with its foot, 24 W LED at 4000 K giving 2040 lm. Innolux rates it 2500 lx at 55 cm and 10 000 lx at 26 cm, so it is a light-therapy lamp rather than a reading light. Not dimmable; the only control is the switch on the cord. The cable drops through the grommet like the brass lamp's. Click to switch it.`,
@@ -1372,7 +1393,7 @@ function addWell(g, cfg) {
     pivot.position.set(a * M, lowerTop * M, hz * M);
     pivot.add(box(w, LG, D - hz, 0, 0, 0, mat.paint));
     pivot.add(box(10, 0.8, 1.5, w / 2 - 5, LG - 0.8, D - hz - 2.5, mat.groove, { cast: false }));   // finger groove
-    pivot.userData = { max: Math.PI / 2, open: 0, target: 0, click: () => togglePiece(pivot), tip: TIPS.lid() };   // opens to vertical, resting on the mirror
+    pivot.userData = { max: 1.4, open: 0, target: 0, click: () => togglePiece(pivot), tip: TIPS.lid() };   // opens to about 80°, held by a stay so it never touches the mirror
     lids.push(pivot);
     g.add(pivot);
   }
@@ -1713,10 +1734,16 @@ sun.shadow.normalBias = 0.02;
 const lamp = new THREE.PointLight(0xffc488, 0, 0, 2);
 lamp.position.set(CONFIG.room.ceilingLight.x * M, (CONFIG.room.ceiling - 8) * M, CONFIG.room.ceilingLight.z * M);
 lamp.castShadow = true;
-lamp.shadow.mapSize.set(1024, 1024);
-lamp.shadow.bias = -0.002;
-lamp.shadow.normalBias = 0.02;
+lamp.shadow.mapSize.set(2048, 2048);      // a point light's shadow is a cube map, so it needs resolution or distant shadows smear
+lamp.shadow.bias = -0.0015;
+lamp.shadow.normalBias = 0.04;
+lamp.shadow.radius = 4;
 scene.add(hemi, sun, sun.target, lamp);
+// Inspection torch: a small spotlight that hovers a little in front of whatever the cursor is on,
+// pointing at it, so dark niches and the inside of the tray can be looked at closely.
+const torch = new THREE.SpotLight(0xfff6e8, 0, 1.6, Math.PI / 7, 0.6, 1.2);
+torch.visible = false;
+scene.add(torch, torch.target);
 const smallLights = [];   // the table lamp, on in the evening
 
 // ---------------------------------------------------------------------------
@@ -1724,6 +1751,7 @@ const smallLights = [];   // the table lamp, on in the evening
 // ---------------------------------------------------------------------------
 let room, wall, bed, doors, dims, ledLight, trayLight;
 function rebuild() {
+  markBusy();
   EFF = effective();
   const keep = doors ? Object.fromEntries(['doors', 'lids', 'pullouts', 'drawers'].map(k => [k, pieces(k).map(p => p.userData.target)])) : null;
   dims?.traverse(o => o.element?.remove());          // CSS2D labels linger in the DOM unless removed by hand
@@ -1813,7 +1841,7 @@ function renderSpec() {
 // ---------------------------------------------------------------------------
 // Day / evening blending
 // ---------------------------------------------------------------------------
-const state = { t: 0, target: 0, led: EFF.wall.led.default, ledT: EFF.wall.led.default, ledOn: true, lampOn: true, ceilingOn: true, curtainOpen: false, curtainT: 0, pillows: 'small' };
+const state = { t: 0, target: 0, led: EFF.wall.led.default, ledT: EFF.wall.led.default, ledOn: true, lampOn: true, ceilingOn: true, curtainOpen: false, curtainT: 0, pillows: 'small', torch: false };
 const smooth = v => v * v * (3 - 2 * v);
 const bg = new THREE.Color();
 const cA = new THREE.Color(), cB = new THREE.Color();
@@ -1840,6 +1868,7 @@ function applyLighting() {
   mat.bulb.emissiveIntensity = (2 + 3 * t) * lampOn;
   mat.rondoFace.emissiveIntensity = (1.6 + 1.4 * t) * lampOn;
   renderer.toneMappingExposure = lerp(d.exposure, e.exposure, t);
+  torch.intensity = 6 + 10 * t;                                            // the torch holds its own against daylight, and more so in the evening
   // Mirror LED: dimmable, independent of the time of day
   ledLight.intensity = 70 * state.ledT;
   mat.ledStrip.emissiveIntensity = 5 * state.ledT;
@@ -1854,6 +1883,7 @@ function setMode(evening) {
   state.target = evening ? 1 : 0;
   document.getElementById('btn-day').setAttribute('aria-pressed', String(!evening));
   document.getElementById('btn-evening').setAttribute('aria-pressed', String(evening));
+  markBusy();
   if (reduceMotion) state.t = state.target;
   writeUrl();
 }
@@ -1862,9 +1892,21 @@ document.getElementById('btn-evening').addEventListener('click', () => setMode(t
 const dimmer = document.getElementById('led-dim');
 dimmer.value = Math.round(state.led * 100);
 dimmer.addEventListener('input', e => { state.led = e.target.value / 100; state.ledOn = state.led > 0; if (reduceMotion) state.ledT = state.led; writeUrl(); });
-function setLed(on) { state.ledOn = on; if (on && state.led === 0) state.led = EFF.wall.led.default; dimmer.value = Math.round((on ? state.led : 0) * 100); writeUrl(); }
-function setLamp(on) { state.lampOn = on; writeUrl(); }
-function setCeiling(on) { state.ceilingOn = on; writeUrl(); }
+// Heavy changes (a light switched, a material swapped, a rebuild) stall for a moment while shaders
+// recompile. Show a busy cursor and a badge from the request until the frame after it has drawn.
+const busyEl = document.getElementById('busy');
+let busyFrames = 0;
+function markBusy() {
+  busyFrames = 3;                                           // this frame compiles; clear once a couple more have drawn
+  document.body.classList.add('is-busy');
+  busyEl.hidden = false;
+}
+function tickBusy() {
+  if (busyFrames > 0 && --busyFrames === 0) { document.body.classList.remove('is-busy'); busyEl.hidden = true; }
+}
+function setLed(on) { markBusy(); state.ledOn = on; if (on && state.led === 0) state.led = EFF.wall.led.default; dimmer.value = Math.round((on ? state.led : 0) * 100); writeUrl(); }
+function setLamp(on) { markBusy(); state.lampOn = on; writeUrl(); }
+function setCeiling(on) { markBusy(); state.ceilingOn = on; writeUrl(); }
 function setCurtain(open) { state.curtainOpen = open; if (reduceMotion) state.curtainT = open ? 1 : 0; writeUrl(); }
 
 // Doors, lids, pull-outs and bed drawers each move on their own: click one to work it, or use the
@@ -2087,7 +2129,16 @@ function probe(e) {                                   // what's under the cursor
   const hit = raycaster.intersectObjects([wall, doors, bed, room], true)[0];
   let click = null, tip = null;
   for (let o = hit?.object; o; o = o.parent) { click ??= o.userData.click ? o : null; tip ??= o.userData.tip ?? null; }
-  return { click, tip };
+  return { click, tip, hit };
+}
+// Put the torch 35 cm back from the hit point along the line of sight, aimed at the point
+function aimTorch(hit) {
+  if (!state.torch) return;
+  if (!hit) { torch.visible = false; return; }
+  const dir = hit.point.clone().sub(camera.position).normalize();
+  torch.position.copy(hit.point).addScaledVector(dir, -0.35);
+  torch.target.position.copy(hit.point);
+  torch.visible = true;
 }
 function clickableAt(e) { return probe(e).click; }
 const tipEl = document.getElementById('tip');
@@ -2106,11 +2157,19 @@ renderer.domElement.addEventListener('pointerup', e => {
 });
 renderer.domElement.addEventListener('pointermove', e => {
   if (e.buttons) { showTip(null); return; }
-  const { click, tip } = probe(e);
+  const { click, tip, hit } = probe(e);
   renderer.domElement.style.cursor = click ? 'pointer' : '';
   showTip(tip, e.clientX, e.clientY);
+  aimTorch(hit);
 });
-renderer.domElement.addEventListener('pointerleave', () => showTip(null));
+renderer.domElement.addEventListener('pointerleave', () => { showTip(null); torch.visible = false; });
+function setTorch(on) {
+  markBusy();
+  state.torch = on;
+  document.getElementById('opt-torch').checked = on;
+  if (!on) torch.visible = false;
+}
+document.getElementById('opt-torch').addEventListener('change', e => setTorch(e.target.checked));
 renderer.domElement.addEventListener('pointerdown', () => showTip(null));
 
 // Keep the camera inside the room while it's in there; zoomed out past the open
@@ -2198,6 +2257,7 @@ renderer.setAnimationLoop(() => {
   controls.update();
   renderer.render(scene, camera);
   labelRenderer.render(scene, camera);
+  tickBusy();
 });
 
 // Handy for poking at numbers from the console: edit bedwall.CONFIG, then bedwall.rebuild()
