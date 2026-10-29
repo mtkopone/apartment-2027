@@ -51,6 +51,17 @@
     display: grid; gap: 10px;
   }
   .spec-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 10px; }
+  .spec-head .help { font-weight: 600; }
+  .intro { position: fixed; inset: 0; z-index: 20; display: grid; place-items: center; padding: 16px; background: rgba(20, 16, 12, 0.45); backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px); }
+  .intro-card { width: min(720px, 100%); max-height: calc(100vh - 32px); overflow: auto; background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 22px 24px; display: grid; gap: 14px; }
+  .intro-card h2 { margin: 0; font-size: 20px; font-weight: 600; }
+  .intro-card h3 { margin: 10px 0 4px; font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); }
+  .intro-card h3:first-child { margin-top: 0; }
+  .intro-cols { display: grid; grid-template-columns: 1fr 1fr; gap: 0 22px; }
+  .intro-card ul { margin: 0; padding-left: 18px; font-size: 13.5px; line-height: 1.45; display: grid; gap: 4px; }
+  .intro-actions { display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap; border-top: 1px solid var(--line); padding-top: 12px; }
+  .btn.primary { background: var(--accent); color: var(--accent-fg); }
+  @media (max-width: 640px) { .intro-cols { grid-template-columns: 1fr; } }
   .spec-head > div { display: grid; gap: 10px; }
   .spec-body { display: grid; gap: 10px; }
   .spec.collapsed .spec-body { display: none; }
@@ -162,10 +173,51 @@
 
 <div id="stage"><div id="labels"></div></div>
 <div id="tip" class="tip" role="tooltip" hidden></div>
+<div id="intro" class="intro" role="dialog" aria-modal="true" aria-labelledby="intro-title" hidden>
+  <div class="intro-card">
+    <h2 id="intro-title">How this model works</h2>
+    <div class="intro-cols">
+      <section>
+        <h3>Moving around</h3>
+        <ul>
+          <li><b>Drag</b> to orbit, <b>scroll</b> to zoom.</li>
+          <li><b>Shift-drag</b> (or right-drag) to slide the view sideways or up and down.</li>
+          <li>Go outside the left wall and it hides itself, so you can look in from the doorway side.</li>
+          <li><b>Reset view</b> in the Interior section brings the camera home.</li>
+        </ul>
+        <h3>Clicking things</h3>
+        <ul>
+          <li>The cursor turns to a hand on anything that works: cabinet doors, ledge lids, bed drawers, the nightstand and its lid, the lamp, the ceiling light, the mirror LED and the curtain.</li>
+          <li>Rest the cursor on niches, plates, lids and lights for a note on why they are the way they are.</li>
+          <li>The <b>Flashlight</b> lights whatever the cursor is on, for dark corners.</li>
+        </ul>
+      </section>
+      <section>
+        <h3>Where things are</h3>
+        <ul>
+          <li><b>Left panel, Behind the headboard</b>: the ideas for the space behind the bed, as switches. Some exclude each other and grey out.</li>
+          <li><b>Left panel, Interior</b>: day or evening, doors, lids and drawers, the mirror LED, lamp model, pillows, the flashlight, loose items and dimension tags.</li>
+          <li><b>Left panel, Dimensions</b>: the numbers for whatever is switched on.</li>
+          <li><b>Right panel, Look</b>: moods as presets, then every surface's colour and material.</li>
+        </ul>
+        <h3>Sharing</h3>
+        <ul>
+          <li>Everything you set is in the address bar. <b>Copy link</b> in the Look panel copies it; whoever opens the link sees exactly this setup.</li>
+          <li>The <b>?</b> at the top left brings this back.</li>
+        </ul>
+      </section>
+    </div>
+    <div class="intro-actions">
+      <label class="toggle"><input type="checkbox" id="intro-hide"> Don't show this again</label>
+      <button class="btn primary" id="intro-close">Got it</button>
+    </div>
+  </div>
+</div>
 <div id="busy" class="busy" role="status" aria-live="polite" hidden><span class="spin"></span>Updating lighting…</div>
 
 <header class="spec" id="spec">
   <div class="spec-head">
+    <button class="fold help" id="btn-help" title="How this works" aria-haspopup="dialog">?</button>
     <div>
       <p class="eyebrow">Mikko's bedroom &middot; headboard wall</p>
       <h1>Headboard Wall 2</h1>
@@ -384,7 +436,7 @@ const pmrem = new THREE.PMREMGenerator(renderer);
 scene.environment = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
 
 const camera = new THREE.PerspectiveCamera(42, window.innerWidth / window.innerHeight, 0.05, 60);
-const HOME = { pos: new THREE.Vector3(0.2, 1.55, 4.3), target: new THREE.Vector3(0.7, 1.3, 0.3) };
+const HOME = { pos: new THREE.Vector3(-0.05, 1.67, 6.28), target: new THREE.Vector3(0.7, 1.3, 0.3) };   // 2 m back along the original line of sight, outside the open front of the room
 camera.position.copy(HOME.pos);
 
 const controls = new OrbitControls(camera, renderer.domElement);
@@ -2104,6 +2156,19 @@ function setPillows(style) {
   writeUrl();
 }
 for (const m of ['big', 'small']) document.getElementById(`pillows-${m}`).addEventListener('click', () => setPillows(m));
+// Intro: shown on first visit, dismissable for good, and always available from the ? button
+const intro = document.getElementById('intro'), introHide = document.getElementById('intro-hide');
+function showIntro() { intro.hidden = false; document.getElementById('intro-close').focus(); }
+function closeIntro() {
+  intro.hidden = true;
+  try { localStorage.setItem('bedwall-intro-seen', introHide.checked ? '1' : '0'); } catch {}
+}
+document.getElementById('btn-help').addEventListener('click', showIntro);
+document.getElementById('intro-close').addEventListener('click', closeIntro);
+intro.addEventListener('click', e => { if (e.target === intro) closeIntro(); });
+document.addEventListener('keydown', e => { if (e.key === 'Escape' && !intro.hidden) closeIntro(); });
+try { if (localStorage.getItem('bedwall-intro-seen') !== '1') showIntro(); } catch { showIntro(); }
+
 // Collapsible spec panel; the choice is remembered in this browser
 const specPanel = document.getElementById('spec'), foldBtn = document.getElementById('btn-fold');
 function setFold(collapsed) {
