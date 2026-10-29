@@ -45,7 +45,7 @@
 
   .spec {
     position: fixed; top: calc(16px + env(safe-area-inset-top, 0px)); left: 16px;
-    max-width: calc(100% - 32px); width: 248px;
+    max-width: calc(100% - 32px); width: 248px; max-height: calc(100vh - 32px); overflow: auto;
     background: var(--panel); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
     border: 1px solid var(--line); border-radius: 12px; padding: 14px 16px;
     display: grid; gap: 10px;
@@ -76,6 +76,12 @@
   .dims summary::before { content: "\25BE"; font-size: 12px; }
   .dims:not([open]) summary::before { content: "\25B8"; }
   .dims dl { margin-top: 8px; }
+  .interior .row { display: grid; grid-template-columns: 76px 1fr; align-items: center; gap: 8px; font-size: 12.5px; }
+  .interior .row > span:first-child { color: var(--muted); }
+  .interior .row .seg { justify-self: start; }
+  .interior .row .chk { display: flex; align-items: center; gap: 6px; cursor: pointer; }
+  .interior .row input[type="range"] { accent-color: var(--accent); width: 100%; margin: 0; }
+  .interior .row .btn { justify-self: start; background: var(--chip); }
   .features select { margin-left: auto; font: 500 12px var(--font-ui); color: var(--fg); background: var(--chip); border: 0; border-radius: 6px; padding: 4px 6px; max-width: 170px; }
 
   .look {
@@ -111,21 +117,12 @@
   .chips button[aria-pressed="true"] { outline: 2px solid var(--accent); outline-offset: 1px; }
   .chips input[type="color"] { width: 22px; height: 22px; border: 0; padding: 0; background: none; cursor: pointer; }
   .look-actions { display: flex; gap: 6px; }
-  @media (max-width: 900px) { .look { top: auto; bottom: calc(76px + env(safe-area-inset-bottom, 0px)); max-height: 50vh; } }
+  @media (max-width: 900px) { .look { top: auto; bottom: calc(16px + env(safe-area-inset-bottom, 0px)); max-height: 50vh; } }
 
-  .controls {
-    position: fixed; bottom: calc(16px + env(safe-area-inset-bottom, 0px)); left: 16px;
-    max-width: calc(100% - 32px); width: max-content;
-    display: flex; flex-wrap: wrap; justify-content: flex-start; align-items: center; gap: 8px;
-    background: var(--panel); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
-    border: 1px solid var(--line); border-radius: 14px; padding: 8px;
-  }
-  .controls-body { display: contents; }
-  .controls.collapsed .controls-body { display: none; }
   .seg { display: flex; background: var(--chip); border-radius: 9px; padding: 3px; gap: 2px; }
   .seg button, .btn {
-    font: 500 13px var(--font-ui); color: var(--fg); background: transparent; border: 0;
-    padding: 7px 14px; border-radius: 7px; cursor: pointer;
+    font: 500 12px var(--font-ui); color: var(--fg); background: transparent; border: 0;
+    padding: 5px 10px; border-radius: 7px; cursor: pointer;
   }
   .seg button[aria-pressed="true"] { background: var(--accent); color: var(--accent-fg); }
   .btn { background: var(--chip); }
@@ -183,12 +180,34 @@
     <label data-note="Probably not structurally sound: the uprights carry the cabinet above"><input type="checkbox" data-feature="pullouts"> Pull-out uprights <span class="warn" aria-label="caution">&#9888;</span></label>
     <label><input type="checkbox" data-feature="frame"> Storage bed frame</label>
   </fieldset>
-  <fieldset class="features" aria-label="Interior">
+  <fieldset class="features interior" aria-label="Interior">
     <legend>Interior</legend>
-    <label>Lamp <select id="opt-lamp" data-interior="lamp">
+    <div class="row"><span>Light</span><div class="seg" role="group" aria-label="Lighting">
+      <button id="btn-day" aria-pressed="true">Day</button>
+      <button id="btn-evening" aria-pressed="false">Evening</button>
+    </div></div>
+    <div class="row"><span>Doors</span><div class="seg" role="group" aria-label="Cabinet doors">
+      <button id="door-closed" aria-pressed="true">Closed</button>
+      <button id="door-open" aria-pressed="false">Open</button>
+    </div></div>
+    <div class="row" id="seg-lids" hidden><span>Lids</span><div class="seg" role="group" aria-label="Ledge lids">
+      <button id="lid-closed" aria-pressed="true">Closed</button>
+      <button id="lid-open" aria-pressed="false">Open</button>
+    </div></div>
+    <label class="row" id="pullouts-toggle" hidden><span>Pull-outs</span><span class="chk"><input type="checkbox" id="opt-pullouts"> Out</span></label>
+    <label class="row" id="beddrawers-toggle" hidden><span>Bed drawers</span><span class="chk"><input type="checkbox" id="opt-beddrawers"> Out</span></label>
+    <label class="row"><span>Mirror LED</span><input type="range" id="led-dim" min="0" max="100" value="70" aria-label="Mirror LED brightness"></label>
+    <label class="row"><span>Lamp</span><select id="opt-lamp" data-interior="lamp">
       <option value="brass">Brass dome lamp</option>
       <option value="rondo">Innolux Rondo Air</option>
     </select></label>
+    <div class="row"><span>Pillows</span><div class="seg" role="group" aria-label="Pillows">
+      <button id="pillows-small" aria-pressed="true">Small</button>
+      <button id="pillows-big" aria-pressed="false">Big</button>
+    </div></div>
+    <label class="row" title="A flashlight that follows the cursor, for looking into dark corners"><span>Flashlight</span><span class="chk"><input type="checkbox" id="opt-torch"> On</span></label>
+    <label class="row"><span>Dimensions</span><span class="chk"><input type="checkbox" id="opt-dims" checked> Show</span></label>
+    <div class="row"><span>View</span><button class="btn" id="btn-reset">Reset view</button></div>
   </fieldset>
   <details class="dims" id="dims-fold" open>
     <summary>Dimensions</summary>
@@ -213,33 +232,6 @@
   </div>
 </aside>
 
-<nav class="controls" id="controls" aria-label="View controls">
-  <button class="fold" id="btn-fold-controls" aria-expanded="true" aria-controls="controls-body" title="Collapse the controls">&#9662;</button>
-  <div class="controls-body" id="controls-body">
-  <div class="seg" role="group" aria-label="Lighting">
-    <button id="btn-day" aria-pressed="true">Day</button>
-    <button id="btn-evening" aria-pressed="false">Evening</button>
-  </div>
-  <div class="seg" role="group" aria-label="Cabinet doors">
-    <button id="door-closed" aria-pressed="true">Closed</button>
-    <button id="door-open" aria-pressed="false">Open</button>
-  </div>
-  <div class="seg" role="group" aria-label="Ledge lids" id="seg-lids" hidden>
-    <button id="lid-closed" aria-pressed="true">Lids closed</button>
-    <button id="lid-open" aria-pressed="false">Lids open</button>
-  </div>
-  <label class="toggle" id="pullouts-toggle" hidden><input type="checkbox" id="opt-pullouts"> Pull-outs out</label>
-  <label class="toggle" id="beddrawers-toggle" hidden><input type="checkbox" id="opt-beddrawers"> Bed drawers out</label>
-  <label class="toggle">Mirror LED <input type="range" id="led-dim" min="0" max="100" value="70" aria-label="Mirror LED brightness"></label>
-  <div class="seg" role="group" aria-label="Pillows">
-    <button id="pillows-small" aria-pressed="true">Small pillows</button>
-    <button id="pillows-big" aria-pressed="false">Big pillows</button>
-  </div>
-  <label class="toggle" title="A flashlight that follows the cursor, for looking into dark corners"><input type="checkbox" id="opt-torch"> Flashlight</label>
-  <label class="toggle"><input type="checkbox" id="opt-dims" checked> Dimensions</label>
-  <button class="btn" id="btn-reset">Reset view</button>
-  </div>
-</nav>
 
 <script type="importmap">
 { "imports": {
@@ -2105,16 +2097,6 @@ document.getElementById('btn-copy').addEventListener('click', async e => {
   catch { prompt('Copy this link', location.href); }
   setTimeout(() => { e.target.textContent = 'Copy link'; }, 1500);
 });
-const controlsBar = document.getElementById('controls'), foldControlsBtn = document.getElementById('btn-fold-controls');
-function setControlsFold(collapsed) {
-  controlsBar.classList.toggle('collapsed', collapsed);
-  foldControlsBtn.setAttribute('aria-expanded', String(!collapsed));
-  foldControlsBtn.innerHTML = collapsed ? '&#9652;' : '&#9662;';
-  foldControlsBtn.title = collapsed ? 'Expand the controls' : 'Collapse the controls';
-  try { localStorage.setItem('bedwall-controls-collapsed', collapsed ? '1' : '0'); } catch {}
-}
-foldControlsBtn.addEventListener('click', () => setControlsFold(!controlsBar.classList.contains('collapsed')));
-try { if (localStorage.getItem('bedwall-controls-collapsed') === '1') setControlsFold(true); } catch {}
 document.getElementById('btn-reset').addEventListener('click', () => {
   camera.position.copy(HOME.pos); controls.target.copy(HOME.target); controls.update();
 });
