@@ -251,6 +251,7 @@
     </div></div>
     <label class="row" id="pullouts-toggle" hidden><span>Pull-outs</span><span class="chk"><input type="checkbox" id="opt-pullouts"> Out</span></label>
     <label class="row" id="beddrawers-toggle" hidden><span>Bed drawers</span><span class="chk"><input type="checkbox" id="opt-beddrawers"> Out</span></label>
+    <label class="row" id="flip-toggle" hidden><span>Ledge sockets</span><span class="chk"><input type="checkbox" id="opt-flip"> Up</span></label>
     <label class="row" id="nightlid-toggle" hidden><span>Nightstand lid</span><span class="chk"><input type="checkbox" id="opt-nightlid"> Open</span></label>
     <label class="row"><span>Mirror LED</span><input type="range" id="led-dim" min="0" max="100" value="70" aria-label="Mirror LED brightness"></label>
     <label class="row"><span>Lamp</span><select id="opt-lamp" data-interior="lamp">
@@ -371,7 +372,8 @@ const CONFIG = {
     doors: { bottom: 163, top: 246, hinges: ['left', 'right', 'right'], thickness: 2, inlay: 3, knobY: 172 },
     shelf: 205,                           // shelf inside the upper cabinet
     hatch: { x: 178, y: 10, w: 11, h: 40 },
-    lamp: { x: 48, z: 12 },               // brass table lamp on the ledge, cable through a grommet
+    lamp: { x: 48, z: 12 },               // brass table lamp on the ledge, cable through an outlet behind it
+    ledgePower: { x: 14.5, w: 22.5, d: 10.5, cutW: 21.5, cutD: 8.8, depth: 5.3, sockets: 2, usbc: 2 },   // without the tray or the alcove: an EVOline BackFlip flush in the ledge next to the left upright; x its left edge, w × d its top (cut-out 215 × 88 mm, 53 mm deep)
     niches: { w: 9, d: 20, slots: [            // open slots in the front of each upright, bottom to top: height above floor, height, what it holds
       { y: 60, h: 12, holds: 'phone', outlets: { sockets: 1, usbc: 2 } },   // phone on a wireless charging pad; a socket plate on the upright's face just below the niche
       { y: 76, h: 16, holds: 'glasses' },        // reading glasses, or whatever
@@ -726,7 +728,7 @@ const mat = {
   curtain: new THREE.MeshPhysicalMaterial({ color: 0x5c1d22, roughness: 0.9, side: THREE.DoubleSide }),
   wallPaint: new THREE.MeshStandardMaterial({ color: 0xefece6, roughness: 0.95 }),
   chrome:  new THREE.MeshStandardMaterial({ color: 0xd0d3d6, metalness: 0.95, roughness: 0.25 }),
-  brass:   new THREE.MeshStandardMaterial({ color: 0xd1aa5e, metalness: 0.95, roughness: 0.22, side: THREE.DoubleSide }),   // "metal" in the Look panel: knobs, grommet, lamp, rod
+  brass:   new THREE.MeshStandardMaterial({ color: 0xd1aa5e, metalness: 0.95, roughness: 0.22, side: THREE.DoubleSide }),   // "metal" in the Look panel: knobs, lamp, rod
   black:   new THREE.MeshStandardMaterial({ color: 0x1b1b1b, roughness: 0.5 }),
   leg:     new THREE.MeshStandardMaterial({ color: 0x3a2a22, roughness: 0.6 }),
   linen:   new THREE.MeshStandardMaterial({ color: 0xcfc6b8, roughness: 1 }),
@@ -1189,6 +1191,7 @@ function mirrorPlane(w, h) {
 const TIPS = {
   phone: (sl, n) => `<b>Phone niche</b>, ${fmt(sl.h)} cm tall, ${fmt(n.w)} wide, ${fmt(n.d)} deep. The phone lies flat on a wireless charging pad let into the floor, wired from inside the upright, so there is normally no cable in sight. The socket plate just below the niche covers everything else. Tall enough to get fingers under the phone.`,
   alcovePower: (o, pw) => `<b>Power in the alcove</b>: with the bed in the alcove nothing can be fed through the ledge, so the electrics are a horizontal plate on the inner face of the left upright, just above the ledge at ${fmt(o.y)} to ${fmt(o.y + 8)} cm: ${o.usbc} USB-C ports stacked one above the other at the front end, then ${o.sockets} Schuko sockets, Schneider Exxact in anthracite, ${fmt(pw)} cm long so it sits within the upright's 25 cm depth with 3 cm either end. The lamp plugs into the inner socket, so its cable barely leaves the ledge. Wired inside the upright from the box's feed.`,
+  ledgePower: o => `<b>Power on the ledge</b>: the bottle niche takes the upright at ledge height, so the sockets go into the ledge itself: an EVOline BackFlip let in flush, ${fmt(o.w * 10)} × ${fmt(o.d * 10)} mm on top and ${fmt(o.depth * 10)} mm deep into the box below (cut-out 215 × 88 mm). Closed it is a flat black lid level with the ledge, so nothing faces up collecting dust or a spilled glass of water; the insert turns over to show ${o.sockets} Schuko sockets and ${o.usbc} USB-C ports. Next to the left upright, clear of the lamp, in reach sitting up in bed, and fed inside the box like the lamp. Check the exact USB-C module when ordering. Click to flip it.`,
   nicheOutlets: o => `<b>Socket plate</b> under the phone niche, Schneider Exxact in anthracite: ${o.usbc} USB-C port${o.usbc > 1 ? 's' : ''} on top and ${o.sockets} Schuko socket${o.sockets > 1 ? 's' : ''} below, flush in the upright's face at about 50 cm, reachable from the pillow. USB-C with Power Delivery charges a laptop, tablet or earbuds; the Schuko takes a lamp or anything else. Both uprights have one.`,
   glasses: (sl, n) => `<b>Glasses niche</b>, ${fmt(sl.h)} cm tall. Room for folded reading glasses, a watch or a paperback on edge. No electrics here; it is the one that stays empty.`,
   bottle: (sl, n) => `<b>Bottle niche</b>, ${fmt(sl.h)} cm tall. A Finnish 0.5 l plastic bottle is about 23 cm, so it lifts in and out upright without tilting, with ${fmt(n.w)} cm of width leaving a finger's room either side.`,
@@ -1198,18 +1201,19 @@ const TIPS = {
   lid: (open, clear) => `<b>Lift-up lid</b>: a 3 cm panel on two invisible hinges in its back edge. It opens to ${open}°, just past upright, leaning back with ${fmt(clear)} cm to spare in front of the glass; a light soft-down stay in the tray sets that stop and lets it down slowly. Finger groove along the front edge; no handle to catch pillows on.`,
   stay: (q, open, torque, mount) => `<b>Lid stay</b>: a small soft-down damper strut, one per lid, from ${mount} to the lid's underside ${fmt(q)} cm from the hinge. Fully extended at ${open}°, it is the stop that holds the lid just past upright, and it lets the lid down slowly so it can't drop on fingers. Sized for about ${fmt(torque)} kg·cm. Each lid has it at its right end only, so the left one stays clear of the power plate; a 3 cm lid is stiff enough for a stay at one end, but worth confirming with the carpenter.`,
   hinges: (rail, kg, torque) => `<b>Hinges</b>: SOSS 208 invisible hinges, two per lid. Each is 70 mm long and is let about 23 mm into the lid's back edge and the ${fmt(rail)} cm rail; that depth is why the rail is this deep. Closed, all that shows is a hairline joint. They swing to 180° with no stop or damping, so each lid also gets one light soft-down stay, sized for about ${fmt(torque)} kg·cm (a ${fmt(kg)} kg lid). The usual Sugatsune HDS-30 is several times too strong.<br><br><b>Other options</b>: Blum CLIP top BLUMOTION inset cup hinges are the easiest to fit and close softly, but show inside the tray and still need a stay. Sugatsune HG-JHM soft-close mortise hinges open to about 116° and need a stop. The Sugatsune Aileron stay with Olympia hinges lifts, holds at any angle and closes softly, but may be discontinued. Blum AVENTOS HK-XS and Hettich Free Flap don't fit: they mount on side walls, and there is none at the split.`,
-  lamp: () => `<b>Table lamp</b> on the ledge, its cable dropping through a brass grommet to a socket inside the box, as the drawing notes ("läpivienti"). Click to switch it.`,
+  lamp: () => `<b>Table lamp</b> on the ledge, its cable dropping through a cable outlet behind it to a socket inside the box, as the drawing notes ("läpivienti"). Click to switch it.`,
   mirrorLed: () => `<b>Mirror LED</b>: a dimmable strip hidden behind a 2 cm lip on the front edge of the recess, lighting the mirror and the ledge. Drag the slider to dim, click the strip to switch.`,
-  rondo: () => `<b>Innolux Rondo Air</b> bright light on the ledge: a flat white disc, 300 × 150 mm with its foot, 24 W LED at 4000 K giving 2040 lm. Innolux rates it 2500 lx at 55 cm and 10 000 lx at 26 cm, so it is a light-therapy lamp rather than a reading light. Not dimmable; the only control is the switch on the cord. The cable drops through the grommet like the brass lamp's. Click to switch it.`,
+  cableOutlet: () => `<b>Cable outlet</b> for the lamp, the drawing's "läpivienti": a Ø 40 mm hole tight against the mirror, right behind the lamp and partly under its base, with a flush anthracite cap whose slot takes just the cable. The hole is big enough to pass a moulded plug, so a lamp can be swapped without cutting its plug off; the plug goes into a socket inside the box. The lamp hides most of it, and the cable drops straight down instead of crossing the ledge.`,
+  rondo: () => `<b>Innolux Rondo Air</b> bright light on the ledge: a flat white disc, 300 × 150 mm with its foot, 24 W LED at 4000 K giving 2040 lm. Innolux rates it 2500 lx at 55 cm and 10 000 lx at 26 cm, so it is a light-therapy lamp rather than a reading light. Not dimmable; the only control is the switch on the cord. The cable drops through the cable outlet behind it like the brass lamp's. Click to switch it.`,
   pullout: () => `<b>Pull-out upright</b>, 13 × 25 cm, lipped shelves open on both sides. <b>Probably not structurally sound as drawn:</b> the uprights are what carry the top rail, the cabinet and the mirror recess, and this removes the lower metre of each. Everything above would hang off its fixings to the back wall alone. It could all be bolted to the wall, but it is not clear the wall will take it, and a real version would need a fixed structural shell with a much narrower drawer, about 8 cm, running inside it. The niches do the same job with no structural cost.`,
   nightstand: (top, clear) => `<b>Pull-out nightstand</b>: the head-end drawer on the bed's open side, with a walnut top over its tray at ${fmt(top)} cm from the floor and a front cut down to the same height, so pulled out it is a low table beside the pillow for a laptop, tablet, book or a bottle. Pushed in, the top slides under the frame's rail with about ${fmt(clear)} cm to spare, so flat things ride inside; a bottle only stands on it while it is out. The top is a lid: lift it to get at the tray underneath.`,
   nightstandLid: () => `<b>Nightstand lid</b>: the inner 22 cm of the top is fixed and the outer 41 cm is a lid hinged on its edge, with a finger groove at the outer end. Pulled out, the hinge sits 12 cm clear of the frame, so the lid lifts to 80° without touching the rail, and it stands as a backstop. A bottle or book on the fixed part stays where it is while the lid is up. It can only lift while the nightstand is pulled out, since the frame's rail sits over it when in, and anything on it has to come off first. Click to lift it.`,
   pad: () => `<b>Wireless charging pad</b>, flush in the niche floor and 2 mm proud so the phone finds it by feel in the dark.`,
 };
 
-const lids = [], pullouts = [];
+const lids = [], pullouts = [], flips = [];
 function buildWall(cfg) {
-  lids.length = 0; pullouts.length = 0;
+  lids.length = 0; pullouts.length = 0; flips.length = 0;
   const g = new THREE.Group();
   const V = CONFIG.features;
   const { width: W, depth: D, height: H, pilaster: PL, topRail: TR, skirting: SK, ledgeTop: LT, ledge: LG, walnutFrame: WF } = cfg;
@@ -1277,7 +1281,7 @@ function buildWall(cfg) {
   g.add(box(0.25, h.h, 0.1, h.x, h.y, D, mat.groove, { cast: false }));
   g.add(box(0.25, h.h, 0.1, h.x + h.w, h.y, D, mat.groove, { cast: false }));
 
-  // Table lamp on the ledge, its cable dropping through a grommet. Two models to choose from.
+  // Table lamp on the ledge, its cable dropping through an outlet behind it. Two models to choose from.
   const lp = cfg.lamp, ly = LT, lampGroup = new THREE.Group();
   if (CONFIG.interior.lamp === 'rondo') {
     // Innolux Rondo Air: a flat white disc, Ø 30 cm and 2.5 thick, leaning back about 12° on a small
@@ -1327,13 +1331,17 @@ function buildWall(cfg) {
     g.add(tube([[lp.x + 7, ly + 0.6, lp.z - 1], [PL + 8, ly + 0.5, lp.z - 1], [PL + 3, ly + 0.8, socketZ], [PL + 1.6, socketY - 1.5, socketZ], [PL + 1.6, socketY, socketZ]]));
     g.add(placed(new THREE.CylinderGeometry(1.7 * M, 1.7 * M, 1.6 * M, 20), mat.black, PL + 1.3, socketY, socketZ).rotateZ(Math.PI / 2));   // the lamp's plug
   } else {
-    const gx = lp.x + 11, gz = lp.z - 4;
-    g.add(placed(new THREE.CylinderGeometry(2.4 * M, 2.4 * M, 0.3 * M, 28), mat.groove, gx, ly + 0.1, gz));
-    const grommet = placed(new THREE.TorusGeometry(2.4 * M, 0.4 * M, 8, 32), mat.brass, gx, ly + 0.2, gz);
-    grommet.rotation.x = Math.PI / 2;
-    g.add(grommet);
-    g.add(tube([[lp.x + 7, ly + 0.6, lp.z - 1], [lp.x + 9.5, ly + 0.5, gz + 0.5], [gx, ly + 0.3, gz], [gx, ly - 2, gz]]));
+    // A flush slotted cap over a Ø 40 mm hole against the mirror, behind the lamp and partly under its base;
+    // the cable leaves the back of the base (or the Rondo's foot) and drops straight into it
+    const gx = lp.x, gz = 2.05 + 2.4, cr = 2.3, top = ly + 0.05, sz = gz - 1.4;   // the slot runs along the back of the cap, just behind the base
+    const cap = placed(new THREE.CylinderGeometry(cr * M, cr * M, 0.1 * M, 32), mat.anthracite, gx, top - 0.05, gz);
+    const slot = box(3.2, 0.11, 0.5, gx - 1.6, top - 0.1, sz - 0.25, mat.black, { cast: false });
+    cap.userData.tip = slot.userData.tip = TIPS.cableOutlet();
+    g.add(cap, slot);
+    const backZ = g.userData.lamp.rondo ? lp.z + 4 - 9.5 : lp.z - 8.3;      // where the cable leaves the lamp
+    g.add(tube([[gx, ly + 0.5, backZ], [gx, ly + 0.4, (backZ + sz) / 2], [gx, top, sz], [gx, ly - 2, sz]]));
   }
+  if (!V.alcove && !V.tray) addLedgePower(g, cfg.ledgePower, ly, 2 + (D - 2) / 2);        // centred on the ledge between the mirror and its front edge
 
   return g;
 }
@@ -1560,6 +1568,29 @@ function addFacePlate(g, cx, yTop, z, { sockets = 1, usbc = 2 }) {
 
 // Flush power plate with Schuko socket faces and USB-C slots. `face` 'z' mounts it on a wall at z
 // facing +z (spanning x from x); 'x' mounts it on a wall at x facing +x (spanning z from z).
+// EVOline BackFlip let flush into the ledge: a thin frame round a turning insert, black lid up when closed and
+// the socket face up when open. It lifts a little as it turns so its corners clear the cut-out.
+function addLedgePower(g, o, top, cz) {
+  const x0 = o.x, cx = x0 + o.w / 2, fw = (o.w - o.cutW) / 2, fd = (o.d - o.cutD) / 2, z0 = cz - o.d / 2, h = 0.15;
+  const tip = TIPS.ledgePower(o);
+  for (const [w, d, x, z] of [[o.w, fd, x0, z0], [o.w, fd, x0, z0 + o.d - fd], [fw, o.cutD, x0, z0 + fd], [fw, o.cutD, x0 + o.w - fw, z0 + fd]]) {
+    const f = box(w, h, d, x, top, z, mat.anthracite, { cast: false });
+    f.userData.tip = tip; g.add(f);
+  }
+  const iw = o.cutW - 0.4, id = o.cutD - 0.4, it = 2.4;
+  const insert = new THREE.Group();
+  insert.position.set(cx * M, (top + 0.1 - it / 2) * M, cz * M);
+  insert.add(box(iw, it, id, -iw / 2, -it / 2, -id / 2, mat.black, { cast: false }));   // the lid face is the top while closed
+  const face = new THREE.Group();                 // the socket plate on the underside, turned to face down
+  face.rotation.x = Math.PI / 2; face.position.y = -it / 2 * M; face.scale.x = iw / 22;
+  addTrayPower(face, -11, -4, 0, 'z', true);
+  insert.add(face);
+  insert.traverse(m => { if (m.isMesh) m.userData.tip = tip; });
+  insert.userData = { open: 0, target: 0, y0: insert.position.y, click: () => togglePiece(insert), tip };
+  flips.push(insert);
+  g.add(insert);
+}
+
 function addTrayPower(g, x, y, z, face = 'z', dark = false, stackUsb = false) {
   const pw = stackUsb ? 19 : 22, ph = 8, along = face === 'z', plateMat = dark ? mat.anthracite : mat.carcass, holeMat = dark ? mat.anthraciteDeep : mat.black;
   const grp = new THREE.Group();                       // built facing +z, then turned if it faces +x
@@ -1910,7 +1941,7 @@ let room, wall, bed, doors, dims, ledLight, trayLight;
 function rebuild() {
   markBusy();
   EFF = effective();
-  const keep = doors ? Object.fromEntries(['doors', 'lids', 'pullouts', 'drawers', 'nightlid'].map(k => [k, pieces(k).map(p => p.userData.target)])) : null;
+  const keep = doors ? Object.fromEntries(['doors', 'lids', 'pullouts', 'drawers', 'nightlid', 'flip'].map(k => [k, pieces(k).map(p => p.userData.target)])) : null;
   dims?.traverse(o => o.element?.remove());          // CSS2D labels linger in the DOM unless removed by hand
   reflectors.forEach(m => m.dispose()); reflectors.length = 0;
   for (const o of [room, wall, bed, doors, dims, ledLight, trayLight, ...smallLights]) if (o) scene.remove(o);
@@ -1968,7 +1999,8 @@ function renderSpec() {
     ['Door opening', `${fmt(d.x1 - d.x0)} cm`],
   ];
   const V = CONFIG.features, hint = document.querySelector('.spec .hint');
-  rows.push(['Lamp', (CONFIG.interior.lamp === 'rondo' ? 'Innolux Rondo Air, 24 W, 4000 K, 2040 lm' : 'brass dome') + (CONFIG.features.alcove ? ', plugged into the upright' : ', through a grommet')]);
+  rows.push(['Lamp', (CONFIG.interior.lamp === 'rondo' ? 'Innolux Rondo Air, 24 W, 4000 K, 2040 lm' : 'brass dome') + (CONFIG.features.alcove ? ', plugged into the upright' : ', through an outlet behind it')]);
+  if (!V.alcove && !V.tray) rows.push(['Ledge power', `EVOline BackFlip flush in the ledge, ${c.ledgePower.sockets} sockets + ${c.ledgePower.usbc} USB-C, by the left upright`]);
   if (V.alcove) rows.push(['Alcove power', `${c.alcovePower.sockets} sockets + ${c.alcovePower.usbc} USB-C on the left upright, just above the ledge`]);
   if (V.alcove) rows.push(['Under ledge', `${fmt(c.ledgeTop - c.ledge)} cm clear, ${fmt(c.ledgeTop - c.ledge - b.topperTop)} above mattress`]);
   if (V.tray) rows.push(['Tray', `${fmt(wall.userData.trayWidth)} × ${fmt(c.lids.depth)} × ${fmt(c.depth - 3)} under the lids; 2 sockets + 2 USB-C at the lamp end`]);
@@ -1988,6 +2020,7 @@ function renderSpec() {
   document.getElementById('seg-lids').hidden = !V.tray;
   document.getElementById('nightlid-toggle').hidden = !(V.frame && V.nightstand);
   document.getElementById('pullouts-toggle').hidden = !V.pullouts;
+  document.getElementById('flip-toggle').hidden = V.tray || V.alcove;
   document.getElementById('beddrawers-toggle').hidden = !EFF.bed.frame;
   hint.textContent = V.tray ? 'Click things to work them. Lifting a lid switches on the LED in the tray.'
     : 'Click doors, drawers, the lamps, the LED strip and the curtain to work them.';
@@ -2072,7 +2105,7 @@ function setCurtain(open) { state.curtainOpen = open; if (reduceMotion) state.cu
 
 // Doors, lids, pull-outs and bed drawers each move on their own: click one to work it, or use the
 // bar's buttons for all of them at once. The bar shows the combined state.
-function pieces(kind) { return kind === 'doors' ? (doors?.children ?? []) : kind === 'lids' ? lids : kind === 'pullouts' ? pullouts : kind === 'nightlid' ? nightLids : bedDrawers; }
+function pieces(kind) { return kind === 'doors' ? (doors?.children ?? []) : kind === 'lids' ? lids : kind === 'flip' ? flips : kind === 'pullouts' ? pullouts : kind === 'nightlid' ? nightLids : bedDrawers; }
 function togglePiece(p) {
   if (p.userData.nightstandLid && !p.userData.drawer.userData.target) {   // the lid only lifts once the nightstand is out
     p.userData.drawer.userData.target = 1;
@@ -2092,7 +2125,7 @@ function syncPieceControls() {
   document.getElementById('door-open').setAttribute('aria-pressed', String(all('doors')));
   document.getElementById('lid-closed').setAttribute('aria-pressed', String(none('lids')));
   document.getElementById('lid-open').setAttribute('aria-pressed', String(all('lids')));
-  for (const [id, kind] of [['opt-pullouts', 'pullouts'], ['opt-beddrawers', 'drawers'], ['opt-nightlid', 'nightlid']]) {
+  for (const [id, kind] of [['opt-pullouts', 'pullouts'], ['opt-beddrawers', 'drawers'], ['opt-nightlid', 'nightlid'], ['opt-flip', 'flip']]) {
     const el = document.getElementById(id);
     el.checked = all(kind); el.indeterminate = !all(kind) && !none(kind);
   }
@@ -2130,7 +2163,7 @@ function writeUrl() {
   // Pieces: 'open'/'out' when all are, otherwise the 1-based numbers of the open ones
   const listOf = kind => { const ps = pieces(kind), on = ps.map((p, i) => p.userData.target ? i + 1 : 0).filter(Boolean);
     return !on.length ? null : on.length === ps.length ? 'all' : on.join(','); };
-  for (const [kind, name, allWord, token] of [['doors', 'doors', 'open', 'open'], ['lids', 'lids', 'open', 'lids'], ['pullouts', 'pullouts', 'out', 'out'], ['drawers', 'drawers', 'out', 'drawers'], ['nightlid', 'nightlid', 'open', 'nightlid']]) {
+  for (const [kind, name, allWord, token] of [['doors', 'doors', 'open', 'open'], ['lids', 'lids', 'open', 'lids'], ['pullouts', 'pullouts', 'out', 'out'], ['drawers', 'drawers', 'out', 'drawers'], ['nightlid', 'nightlid', 'open', 'nightlid'], ['flip', 'sockets', 'up', 'sockets']]) {
     const v = listOf(kind);
     if (v) { q.set(name, v === 'all' ? allWord : v); t.push(v === 'all' ? token : `${name}=${v}`); }
   }
@@ -2179,6 +2212,7 @@ function setLids(mode) { setAll('lids', mode === 'open'); }
 for (const m of ['closed', 'open'])
   document.getElementById(`lid-${m}`).addEventListener('click', () => setLids(m));
 function setPullouts(out) { setAll('pullouts', out); }
+document.getElementById('opt-flip').addEventListener('change', e => setAll('flip', e.target.checked));
 document.getElementById('opt-pullouts').addEventListener('change', e => setPullouts(e.target.checked));
 function setBedDrawers(out) { setAll('drawers', out); }
 function setNightLid(open) { if (open) for (const l of nightLids) l.userData.drawer.userData.target = 1; setAll('nightlid', open); }
@@ -2411,7 +2445,7 @@ const pieceParam = (name, allWord, token) => {
   const nums = v.split(',').map(Number).filter(Number.isFinite);
   return nums.length ? nums : null;
 };
-for (const [kind, name, allWord, token] of [['doors', 'doors', 'open', 'open'], ['lids', 'lids', 'open', 'lids'], ['pullouts', 'pullouts', 'out', 'out'], ['drawers', 'drawers', 'out', 'drawers'], ['nightlid', 'nightlid', 'open', 'nightlid']]) {
+for (const [kind, name, allWord, token] of [['doors', 'doors', 'open', 'open'], ['lids', 'lids', 'open', 'lids'], ['pullouts', 'pullouts', 'out', 'out'], ['drawers', 'drawers', 'out', 'drawers'], ['nightlid', 'nightlid', 'open', 'nightlid'], ['flip', 'sockets', 'up', 'sockets']]) {
   const v = pieceParam(name, allWord, token) ?? (tokens.has('open-evening') && kind === 'doors' ? 'all' : null);
   if (v) pieces(kind).forEach((p, i) => { if (v === 'all' || v.includes(i + 1)) p.userData.target = p.userData.open = 1; });
 }
@@ -2443,6 +2477,7 @@ renderer.setAnimationLoop(() => {
     l.rotation.z = -l.userData.max * step(l, 0.9);                                   // hinged on the bed side: the outer edge swings up
     l.userData.onTop.visible = state.items && l.userData.open < 0.03;               // what was on it comes off as it lifts
   }
+  for (const f of flips) { const s = step(f, 0.9); f.rotation.x = Math.PI * s; f.position.y = f.userData.y0 + Math.sin(Math.PI * s) * 3 * M; }
   for (const u of pullouts) u.position.z = u.userData.travel * step(u, 1.2) * M;
   for (const d of bedDrawers) d.position[d.userData.axis] = d.userData.sign * d.userData.travel * step(d, 1.2) * M;
   state.curtainT = lerp(state.curtainT, state.curtainOpen ? 1 : 0, k * 0.9);
