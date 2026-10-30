@@ -1195,7 +1195,8 @@ const TIPS = {
   tray: (iw, depth, d) => `<b>Tray</b> behind the headboard, ${fmt(iw)} × ${fmt(depth)} × ${fmt(d)} cm, under the two lids only. Shallow on purpose: ${fmt(depth)} cm means everything is reachable from above while kneeling on the bed, and nothing gets buried. The part under the lamp is a closed compartment for the electrics.`,
   trayPower: () => `<b>Power in the tray</b>: two Schuko sockets and two USB-C ports on a plate at the lamp end, facing into the tray. The compartment behind it, under the lamp's fixed ledge, holds the wiring and shares the lamp's feed. USB-C with Power Delivery charges a phone or tablet without a charger brick. Worth confirming with the electrician how they want sockets inside furniture done.`,
   trayLed: () => `<b>Tray LED</b>: neutral-white strip along the back under the hinge rail, on a lid sensor. It comes on as a lid lifts and goes off when both are down, so nothing to switch.`,
-  lid: (open, clear) => `<b>Lift-up lid</b>: a 3 cm panel on two invisible hinges in its back edge. It opens to ${open}°, just past upright, leaning back with ${fmt(clear)} cm to spare in front of the glass; a light soft-down stay on the tray's end wall sets that stop and lets it down slowly. Finger groove along the front edge; no handle to catch pillows on.`,
+  lid: (open, clear) => `<b>Lift-up lid</b>: a 3 cm panel on two invisible hinges in its back edge. It opens to ${open}°, just past upright, leaning back with ${fmt(clear)} cm to spare in front of the glass; a light soft-down stay in the tray sets that stop and lets it down slowly. Finger groove along the front edge; no handle to catch pillows on.`,
+  stay: (q, open, torque, mount) => `<b>Lid stay</b>: a small soft-down damper strut, one per lid, from ${mount} to the lid's underside ${fmt(q)} cm from the hinge. Fully extended at ${open}°, it is the stop that holds the lid just past upright, and it lets the lid down slowly so it can't drop on fingers. Sized for about ${fmt(torque)} kg·cm. Each lid has it at its right end only, so the left one stays clear of the power plate; a 3 cm lid is stiff enough for a stay at one end, but worth confirming with the carpenter.`,
   hinges: (rail, kg, torque) => `<b>Hinges</b>: SOSS 208 invisible hinges, two per lid. Each is 70 mm long and is let about 23 mm into the lid's back edge and the ${fmt(rail)} cm rail; that depth is why the rail is this deep. Closed, all that shows is a hairline joint. They swing to 180° with no stop or damping, so each lid also gets one light soft-down stay, sized for about ${fmt(torque)} kg·cm (a ${fmt(kg)} kg lid). The usual Sugatsune HDS-30 is several times too strong.<br><br><b>Other options</b>: Blum CLIP top BLUMOTION inset cup hinges are the easiest to fit and close softly, but show inside the tray and still need a stay. Sugatsune HG-JHM soft-close mortise hinges open to about 116° and need a stop. The Sugatsune Aileron stay with Olympia hinges lifts, holds at any angle and closes softly, but may be discontinued. Blum AVENTOS HK-XS and Hettich Free Flap don't fit: they mount on side walls, and there is none at the split.`,
   lamp: () => `<b>Table lamp</b> on the ledge, its cable dropping through a brass grommet to a socket inside the box, as the drawing notes ("läpivienti"). Click to switch it.`,
   mirrorLed: () => `<b>Mirror LED</b>: a dimmable strip hidden behind a 2 cm lip on the front edge of the recess, lighting the mirror and the ledge. Drag the slider to dim, click the strip to switch.`,
@@ -1486,8 +1487,33 @@ function addWell(g, cfg) {
       soss(g, a + hx, lowerTop + 0.7, hz, 1);
       soss(pivot, hx, -LG + 0.7, -0.06, -1);
     }
-    const open = li.open, clear = hz - 2 - ld * Math.sin((open - 90) * Math.PI / 180);   // the mirror glass is 2 cm thick from the wall
-    pivot.userData = { max: open * Math.PI / 180, open: 0, target: 0, click: () => togglePiece(pivot), tip: TIPS.lid(open, clear) };   // rests just past upright on its stay
+    const open = li.open;
+    // Soft-down stay at the lid's right end: a damper strut from low in the tray to the lid's underside. Its
+    // full extension is the opening angle, so it is also the stop. The last lid's is on the end wall; the
+    // others' are on a bracket off the tray's front panel, which keeps the left one clear of the power plate.
+    {
+      const last = i === edges.length - 2, sx = last ? W - PL - 2 : a + w - 1.5, q = 7, py = lowerTop + LG - 16, pz = hz + 16;   // strut line; lid fixing q from the hinge; wall fixing
+      const at = th => [lowerTop + LG - LG * Math.cos(th) + q * Math.sin(th), hz + LG * Math.sin(th) + q * Math.cos(th)];   // lid fixing (y, z) at angle th
+      const len = th => { const [y, z] = at(th); return Math.hypot(y - py, z - pz); };
+      const bodyL = len(0) - 1.5, rodL = len(open * Math.PI / 180) - bodyL;          // closed, 1.5 cm of rod shows
+      const stayTip = TIPS.stay(q, open, kg * ld / 2, last ? "the tray's end wall" : "a bracket on the tray's front panel");
+      const body = new THREE.Mesh(new THREE.CylinderGeometry(0.7 * M, 0.7 * M, bodyL * M, 16), mat.groove);
+      const rod = new THREE.Mesh(new THREE.CylinderGeometry(0.3 * M, 0.3 * M, rodL * M, 12), mat.chrome);
+      const wallFix = last ? box(1.5, 2.5, 2.5, sx - 0.3, py - 1.25, pz - 1.25, mat.chrome, { cast: false })
+                           : box(1.5, 2.5, D - t - pz + 1.25, sx - 0.75, py - 1.25, pz - 1.25, mat.chrome, { cast: false });
+      const lidFix = box(1.6, 1.2, 2, sx - a - 0.8, -LG - 1.2, q - 1, mat.chrome, { cast: false });
+      for (const m of [body, rod, wallFix, lidFix]) m.userData.tip = stayTip;
+      g.add(body, rod, wallFix); pivot.add(lidFix);
+      pivot.userData.stay = th => {
+        const [y, z] = at(th), L = Math.hypot(y - py, z - pz), uy = (y - py) / L, uz = (z - pz) / L;
+        body.position.set(sx * M, (py + uy * bodyL / 2) * M, (pz + uz * bodyL / 2) * M);
+        rod.position.set(sx * M, (y - uy * rodL / 2) * M, (z - uz * rodL / 2) * M);
+        body.rotation.x = rod.rotation.x = Math.atan2(uz, uy);
+      };
+    }
+    const clear = hz - 2 - ld * Math.sin((open - 90) * Math.PI / 180);   // the mirror glass is 2 cm thick from the wall
+    pivot.userData = { max: open * Math.PI / 180, open: 0, target: 0, click: () => togglePiece(pivot), tip: TIPS.lid(open, clear), stay: pivot.userData.stay };   // rests just past upright on its stay
+    pivot.userData.stay?.(0);
     lids.push(pivot);
     g.add(pivot);
   }
@@ -2412,7 +2438,7 @@ renderer.setAnimationLoop(() => {
   state.ledT = lerp(state.ledT, state.ledOn ? state.led : 0, k * 1.5);
   const step = (p, rate) => { p.userData.open = lerp(p.userData.open, p.userData.target, k * rate); return smooth(p.userData.open); };
   for (const p of doors.children) p.rotation.y = p.userData.sign * p.userData.max * step(p, 0.8);
-  for (const l of lids) l.rotation.x = -l.userData.max * step(l, 0.8);
+  for (const l of lids) { l.rotation.x = -l.userData.max * step(l, 0.8); l.userData.stay?.(-l.rotation.x); }
   for (const l of nightLids) {
     l.rotation.z = -l.userData.max * step(l, 0.9);                                   // hinged on the bed side: the outer edge swings up
     l.userData.onTop.visible = state.items && l.userData.open < 0.03;               // what was on it comes off as it lifts
