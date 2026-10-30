@@ -377,7 +377,7 @@ const CONFIG = {
       { y: 76, h: 16, holds: 'glasses' },        // reading glasses, or whatever
       { y: 96, h: 27, holds: 'bottle' },         // a 0.5 l soda bottle standing up
     ] },
-    lids: { fixed: [13, 47], split: [112], depth: 20, lampX: 30 },   // fixed ledge section round the lamp (moved to lampX); lids between the remaining edges; tray depth
+    lids: { fixed: [13, 47], split: [112], depth: 20, lampX: 30, rail: 5, open: 93 },   // fixed ledge section round the lamp (moved to lampX); lids between the remaining edges; tray depth; fixed rail in front of the mirror the lids hinge on (deep enough for SOSS hinges); opening angle
     pullouts: { shelves: [28, 56, 84], travel: 24 },        // shelf heights inside each pull-out unit, and how far it slides out
   },
   bed: {                                  // continental bed with a gingham base, 160 x 200, centred in the recess
@@ -1195,7 +1195,8 @@ const TIPS = {
   tray: (iw, depth, d) => `<b>Tray</b> behind the headboard, ${fmt(iw)} × ${fmt(depth)} × ${fmt(d)} cm, under the two lids only. Shallow on purpose: ${fmt(depth)} cm means everything is reachable from above while kneeling on the bed, and nothing gets buried. The part under the lamp is a closed compartment for the electrics.`,
   trayPower: () => `<b>Power in the tray</b>: two Schuko sockets and two USB-C ports on a plate at the lamp end, facing into the tray. The compartment behind it, under the lamp's fixed ledge, holds the wiring and shares the lamp's feed. USB-C with Power Delivery charges a phone or tablet without a charger brick. Worth confirming with the electrician how they want sockets inside furniture done.`,
   trayLed: () => `<b>Tray LED</b>: neutral-white strip along the back under the hinge rail, on a lid sensor. It comes on as a lid lifts and goes off when both are down, so nothing to switch.`,
-  lid: () => `<b>Lift-up lid</b>: a 3 cm panel on a hinge rail just in front of the mirror, opening to about 80° on a lid stay that holds it there, a couple of centimetres clear of the glass. Finger groove along the front edge; no handle to catch pillows on.`,
+  lid: (open, clear) => `<b>Lift-up lid</b>: a 3 cm panel on two invisible hinges in its back edge. It opens to ${open}°, just past upright, leaning back with ${fmt(clear)} cm to spare in front of the glass; a light soft-down stay on the tray's end wall sets that stop and lets it down slowly. Finger groove along the front edge; no handle to catch pillows on.`,
+  hinges: (rail, kg, torque) => `<b>Hinges</b>: SOSS 208 invisible hinges, two per lid. Each is 70 mm long and is let about 23 mm into the lid's back edge and the ${fmt(rail)} cm rail; that depth is why the rail is this deep. Closed, all that shows is a hairline joint. They swing to 180° with no stop or damping, so each lid also gets one light soft-down stay, sized for about ${fmt(torque)} kg·cm (a ${fmt(kg)} kg lid). The usual Sugatsune HDS-30 is several times too strong.<br><br><b>Other options</b>: Blum CLIP top BLUMOTION inset cup hinges are the easiest to fit and close softly, but show inside the tray and still need a stay. Sugatsune HG-JHM soft-close mortise hinges open to about 116° and need a stop. The Sugatsune Aileron stay with Olympia hinges lifts, holds at any angle and closes softly, but may be discontinued. Blum AVENTOS HK-XS and Hettich Free Flap don't fit: they mount on side walls, and there is none at the split.`,
   lamp: () => `<b>Table lamp</b> on the ledge, its cable dropping through a brass grommet to a socket inside the box, as the drawing notes ("läpivienti"). Click to switch it.`,
   mirrorLed: () => `<b>Mirror LED</b>: a dimmable strip hidden behind a 2 cm lip on the front edge of the recess, lighting the mirror and the ledge. Drag the slider to dim, click the strip to switch.`,
   rondo: () => `<b>Innolux Rondo Air</b> bright light on the ledge: a flat white disc, 300 × 150 mm with its foot, 24 W LED at 4000 K giving 2040 lm. Innolux rates it 2500 lx at 55 cm and 10 000 lx at 26 cm, so it is a light-therapy lamp rather than a reading light. Not dimmable; the only control is the switch on the cord. The cable drops through the grommet like the brass lamp's. Click to switch it.`,
@@ -1462,15 +1463,31 @@ function addWell(g, cfg) {
   for (const x of [tx0 - 0.8, W - PL - 0.8]) g.add(box(0.8, wd, D - t - 1, x, wy, 1, mat.carcass));   // partition and right end
   g.add(box(f1 - f0, LG, D, f0, lowerTop, 0, mat.paint));
   const edges = [f1, ...li.split, W - PL];
-  const hz = 2.6;                                                              // hinge line, just in front of the mirror
-  g.add(box(W - PL - f1, LG, hz, f1, lowerTop, 0, mat.paint));                 // fixed rail the lids hinge on
+  const hz = li.rail, ld = D - hz;                                             // hinge line in front of the mirror; lid depth
+  const rail = box(W - PL - f1, LG, hz, f1, lowerTop, 0, mat.paint);           // fixed rail the lids hinge on, holding the hinge bodies
+  g.add(rail);
+  // SOSS-style hinges: a body let into the rail's front face and one into the lid's back edge, with the
+  // links between. Closed, each plate sits inside the other piece; open, they show in the joint.
+  const lw = Math.max(...edges.slice(1).map((e, i) => e - edges[i])) - 0.6, kg = lw * ld * LG * 0.00075;   // painted MDF, ~750 kg/m³
+  const hingeTip = TIPS.hinges(hz, kg, kg * ld / 2);                           // torque to hold it level: weight × half its depth
+  rail.userData.tip = hingeTip;
+  const soss = (grp, x, y, z, dz) => {
+    const parts = [box(7, 1.6, 0.06, x - 3.5, y, z, mat.chrome, { cast: false }),
+                   box(5, 0.6, 0.08, x - 2.5, y + 0.5, dz < 0 ? z - 0.02 : z, mat.groove, { cast: false })];
+    for (const m of parts) { m.userData.tip = hingeTip; grp.add(m); }
+  };
   for (let i = 0; i + 1 < edges.length; i++) {
     const a = edges[i] + 0.3, w = edges[i + 1] - 0.3 - a;
     const pivot = new THREE.Group();
-    pivot.position.set(a * M, lowerTop * M, hz * M);
-    pivot.add(box(w, LG, D - hz, 0, 0, 0, mat.paint));
-    pivot.add(box(10, 0.8, 1.5, w / 2 - 5, LG - 0.8, D - hz - 2.5, mat.groove, { cast: false }));   // finger groove
-    pivot.userData = { max: 1.4, open: 0, target: 0, click: () => togglePiece(pivot), tip: TIPS.lid() };   // opens to about 80°, held by a stay so it never touches the mirror
+    pivot.position.set(a * M, (lowerTop + LG) * M, hz * M);                    // pivot on the top surface, as a SOSS hinge swings, so the back edge lifts clear of the rail
+    pivot.add(box(w, LG, ld, 0, -LG, 0, mat.paint));
+    pivot.add(box(10, 0.8, 1.5, w / 2 - 5, -0.8, ld - 2.5, mat.groove, { cast: false }));   // finger groove
+    for (const hx of [7, w - 7]) {
+      soss(g, a + hx, lowerTop + 0.7, hz, 1);
+      soss(pivot, hx, -LG + 0.7, -0.06, -1);
+    }
+    const open = li.open, clear = hz - 2 - ld * Math.sin((open - 90) * Math.PI / 180);   // the mirror glass is 2 cm thick from the wall
+    pivot.userData = { max: open * Math.PI / 180, open: 0, target: 0, click: () => togglePiece(pivot), tip: TIPS.lid(open, clear) };   // rests just past upright on its stay
     lids.push(pivot);
     g.add(pivot);
   }
